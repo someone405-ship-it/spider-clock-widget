@@ -1,1 +1,87 @@
-PLACEHOLDER
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="Spider Clock Widget - Real-time animated spider clock with gears. Add to home screen on mobile or install on PC.">
+    <meta name="theme-color" content="#a34a01">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Spider Clock">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕷️</text></svg>">
+    <title>Spider Clock Widget</title>
+    <link rel="stylesheet" href="./style.css">
+    <style>
+      #clock-loading {
+        color: #fff;
+        text-align: center;
+        font-family: system-ui, sans-serif;
+        padding: 2rem;
+        opacity: 0.85;
+      }
+    </style>
+</head>
+<body>
+    <div class="vline"></div>
+    <div class="gsapWrapper">
+        <div id="wBody">
+            <div id="watch">
+                <p id="clock-loading">Loading Spider Clock…</p>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/MorphSVGPlugin.min.js"></script>
+    <script>
+    (async function loadSpiderSvg() {
+      const sources = [
+        "https://raw.githubusercontent.com/piyush-soni777/ps-spider-clock/main/index.html",
+        "https://cdn.jsdelivr.net/gh/piyush-soni777/ps-spider-clock@main/index.html"
+      ];
+      const watch = document.getElementById("watch");
+      let html = null;
+      for (const url of sources) {
+        try {
+          const res = await fetch(url, { cache: "force-cache" });
+          if (!res.ok) continue;
+          html = await res.text();
+          if (html && html.indexOf("face01") !== -1) break;
+          html = null;
+        } catch (e) { /* try next */ }
+      }
+      if (!html) {
+        watch.innerHTML = '<p id="clock-loading">Could not load SVG. Check your internet connection and refresh.</p>';
+        return;
+      }
+      html = html.replace(/flood-color="#a0a0a0"/g, 'flood-color="#a34a01"');
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, "text/html");
+      const svg = doc.querySelector("#watchSVG") || doc.querySelector("svg");
+      if (!svg) {
+        watch.innerHTML = '<p id="clock-loading">SVG not found in source.</p>';
+        return;
+      }
+      watch.innerHTML = "";
+      watch.appendChild(document.importNode(svg, true));
+
+      const s = document.createElement("script");
+      s.src = "./script.js";
+      s.onload = function () {
+        if (document.readyState === "complete") {
+          window.dispatchEvent(new Event("load"));
+        }
+      };
+      document.body.appendChild(s);
+    })();
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("./sw.js").catch(function (e) {
+          console.log("SW reg failed", e);
+        });
+      });
+    }
+    </script>
+</body>
+</html>
