@@ -1,58 +1,36 @@
 # 🕷️ Spider Clock Widget
 
-Real-time Spider Clock that matches the Instagram design (orange gradient, white spider, rotating gears).
+Real-time Spider Clock matching the Instagram design (orange gradient, white spider, rotating gears).
 
-Works as a **PWA** on mobile (Add to Home Screen) and as an installable / draggable window on PC.
+## What’s new
 
-## ⚡ Get the COMPLETE working file (full SVG + gears)
+### On open (mobile + PC)
+- **Settings screen** with **live preview** of the real clock
+- Choose size: Small / Medium / Large / Full
+- Toggle **Widget mode**
+- Option: show settings every time the app opens (or skip)
 
-The full SVG is large, so a **GitHub Actions workflow** downloads it and builds a production-ready `index.html` for you.
+### PC – Widget mode
+- Small floating clock
+- **Drag** it anywhere on the screen
+- Position is saved
+- Transparent background so it feels like a desktop widget
+- Gear button (⚙) to reopen settings anytime
 
-### How to run it
+### Buttons in settings
+- **Open full clock** – normal full-screen view
+- **Start as widget** – small + draggable (best on PC)
+- **Close** – keep current mode
 
-1. Go to the repo → **Actions** tab  
-2. Select **“Build Full Spider Clock”**  
-3. Click **Run workflow** → **Run workflow**  
-4. Wait ~30 seconds  
-5. The workflow commits a complete `index.html` with all gears + spider paths
+## Get the complete animated SVG
 
-After it finishes you can open / download the full `index.html` and it will look exactly like the picture.
+1. Repo → **Actions** → **Build Full Spider Clock** → **Run workflow**
+2. Wait ~30s – full `index.html` with all gears is committed
 
-You can also trigger it by pushing changes to `style.css` / `script.js`.
-
-## Bugs fixed in this version
-
-- Null-safety: no more crashes if SVG elements are missing
-- MorphSVG gracefully degrades when the Club plugin is unavailable
-- Removed undeclared `changingHr` variable
-- Cleaner GSAP timelines
-- Better mobile performance (no `background-attachment: fixed`)
-- Touch / tap improvements
-
-## Mobile (Add to Home Screen)
-
-1. Open the page (after workflow has built the full index)
-2. Chrome Android → ⋮ → **Add to Home screen** / Install
-3. Safari iOS → Share → **Add to Home Screen**
+## Mobile
+Add to Home Screen (Chrome/Safari), then open the app → settings + preview appear first.
 
 ## PC
-
-1. Open the page
-2. Install as app (address-bar install icon) → gets its own draggable window
-3. Or just keep the browser window open and drag it
-
-## Files
-
-| File | Role |
-|------|------|
-| `index.html` | Built by the Actions workflow (full SVG) |
-| `style.css` | Exact Instagram gradient + responsive |
-| `script.js` | Fixed real-time + gear logic |
-| `manifest.json` + `sw.js` | PWA / offline |
-| `.github/workflows/build-full-index.yml` | Auto-downloads & patches the full clock |
-
-## Enable free online link
-
-Settings → Pages → Deploy from branch `main` → Save.
+Install as app or open in browser → use **Start as widget** and drag the small clock.
 
 Repo: https://github.com/someone405-ship-it/spider-clock-widget
