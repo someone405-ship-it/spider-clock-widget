@@ -28,13 +28,14 @@ if (hasMorph) {
   try { gsap.registerPlugin(MorphSVGPlugin); } catch (e) { console.warn("MorphSVG not available"); }
 }
 
-const STORAGE_KEY = "spiderClockSettings";
+const STORAGE_KEY = "spiderClockSettings_v2";
 const defaultSettings = {
   size: "full",
   widgetMode: false,
   openSettingsOnLaunch: true,
   posX: null,
-  posY: null
+  posY: null,
+  scale: 1
 };
 
 function loadSettings() {
@@ -52,6 +53,26 @@ function saveSettings(s) {
 let settings = loadSettings();
 let isAnimatingLayout = false;
 
+function clampScale(v) {
+  return Math.min(2.5, Math.max(0.35, Number(v) || 1));
+}
+
+function applyScale(scale, animate) {
+  settings.scale = clampScale(scale);
+  const body = select("#wBody");
+  if (!body) return;
+  if (animate) {
+    gsap.to(body, { duration: 0.25, scale: settings.scale, transformOrigin: "50% 50%", ease: "power2.out" });
+  } else {
+    gsap.set(body, { scale: settings.scale, transformOrigin: "50% 50%" });
+  }
+  const slider = select("#scaleSlider");
+  const label = select("#scaleLabel");
+  if (slider) slider.value = settings.scale;
+  if (label) label.textContent = Math.round(settings.scale * 100) + "%";
+  saveSettings(settings);
+}
+
 function applySize(size) {
   document.body.classList.remove("size-small", "size-medium", "size-large", "size-full");
   document.body.classList.add("size-" + (size || "full"));
@@ -59,7 +80,7 @@ function applySize(size) {
   saveSettings(settings);
 }
 
-function setWidgetMode(on, animate = true) {
+function setWidgetMode(on, animate) {
   settings.widgetMode = !!on;
   const wrap = select(".gsapWrapper");
   const body = document.body;
@@ -73,17 +94,15 @@ function setWidgetMode(on, animate = true) {
       wrap.style.position = "fixed";
       wrap.style.zIndex = "50";
       wrap.style.pointerEvents = "";
-      if (animate && !isAnimatingLayout) {
+      if (animate) {
         const rect = wrap.getBoundingClientRect();
         gsap.fromTo(wrap,
-          { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
+          { left: rect.left, top: rect.top },
           {
-            duration: 0.55,
+            duration: 0.5,
             ease: "power3.inOut",
             left: targetX,
             top: targetY,
-            width: "auto",
-            height: "auto",
             onComplete: () => {
               wrap.style.left = targetX + "px";
               wrap.style.top = targetY + "px";
@@ -93,27 +112,22 @@ function setWidgetMode(on, animate = true) {
       } else {
         wrap.style.left = targetX + "px";
         wrap.style.top = targetY + "px";
-        wrap.style.width = "auto";
-        wrap.style.height = "auto";
       }
     }
   } else {
     body.classList.remove("widget-mode");
     applySize(settings.size === "small" ? "full" : settings.size);
     if (wrap) {
-      if (animate && !isAnimatingLayout) {
-        const rect = wrap.getBoundingClientRect();
+      if (animate) {
         gsap.to(wrap, {
-          duration: 0.5,
+          duration: 0.45,
           ease: "power3.inOut",
-          left: (window.innerWidth - rect.width) / 2,
-          top: (window.innerHeight - rect.height) / 2,
+          left: window.innerWidth / 2 - 100,
+          top: window.innerHeight / 2 - 100,
           onComplete: () => {
             wrap.style.position = "";
             wrap.style.left = "";
             wrap.style.top = "";
-            wrap.style.width = "";
-            wrap.style.height = "";
             wrap.style.zIndex = "";
           }
         });
@@ -121,13 +135,13 @@ function setWidgetMode(on, animate = true) {
         wrap.style.position = "";
         wrap.style.left = "";
         wrap.style.top = "";
-        wrap.style.width = "";
-        wrap.style.height = "";
         wrap.style.zIndex = "";
       }
     }
   }
   saveSettings(settings);
+  const wc = select("#widgetCheck");
+  if (wc) wc.checked = !!on;
 }
 
 function createUI() {
@@ -144,6 +158,12 @@ function createUI() {
     const bar = document.createElement("div");
     bar.className = "drag-bar";
     wrap.appendChild(bar);
+
+    const handle = document.createElement("div");
+    handle.className = "resize-handle";
+    handle.title = "Drag to scale";
+    wrap.appendChild(handle);
+    initResize(handle);
   }
 
   const overlay = document.createElement("div");
@@ -157,7 +177,7 @@ function createUI() {
         <div class="preview-label">Live preview</div>
       </div>
       <div class="setting-row">
-        <label for="sizeSelect">Clock size</label>
+        <label for="sizeSelect">Preset size</label>
         <select id="sizeSelect">
           <option value="small">Small</option>
           <option value="medium">Medium</option>
@@ -165,21 +185,25 @@ function createUI() {
           <option value="full">Full</option>
         </select>
       </div>
+      <div class="setting-row scale-row">
+        <label for="scaleSlider">Scale <span id="scaleLabel">100%</span></label>
+        <input type="range" id="scaleSlider" min="0.35" max="2.5" step="0.05" value="1">
+      </div>
       <div class="setting-row">
-        <label for="widgetCheck">Widget mode (small + drag on PC)</label>
+        <label for="widgetCheck">Widget mode (drag + scale on PC)</label>
         <input type="checkbox" id="widgetCheck">
       </div>
       <div class="setting-row">
-        <label for="launchCheck">Show settings when opening app</label>
+        <label for="launchCheck">Show settings on open</label>
         <input type="checkbox" id="launchCheck">
       </div>
       <div class="btn-row">
-        <button class="btn btn-primary" id="btnFull">Open full clock</button>
-        <button class="btn btn-widget" id="btnWidget">Start as widget</button>
-        <button class="btn btn-secondary" id="btnClose">Close</button>
+        <button type="button" class="btn btn-primary" id="btnFull">Open full clock</button>
+        <button type="button" class="btn btn-widget" id="btnWidget">Start as widget</button>
+        <button type="button" class="btn btn-secondary" id="btnClose">Close</button>
       </div>
-      <p class="hint">PC: Widget mode lets you drag the small clock around the screen.<br>
-      Mobile: Add to Home Screen, then use settings for size.</p>
+      <p class="hint">PC: Scroll wheel over the clock to scale · drag corner handle in widget mode · drag to move.<br>
+      Mobile: Add to Home Screen for an app-like experience.</p>
     </div>
   `;
   document.body.appendChild(overlay);
@@ -187,16 +211,20 @@ function createUI() {
   const sizeSelect = select("#sizeSelect");
   const widgetCheck = select("#widgetCheck");
   const launchCheck = select("#launchCheck");
+  const scaleSlider = select("#scaleSlider");
 
   sizeSelect.value = settings.size || "full";
   widgetCheck.checked = !!settings.widgetMode;
   launchCheck.checked = settings.openSettingsOnLaunch !== false;
+  scaleSlider.value = settings.scale || 1;
+  select("#scaleLabel").textContent = Math.round((settings.scale || 1) * 100) + "%";
 
   sizeSelect.addEventListener("change", () => {
     if (!settings.widgetMode) applySize(sizeSelect.value);
     else settings.size = sizeSelect.value;
     saveSettings(settings);
   });
+  scaleSlider.addEventListener("input", () => applyScale(scaleSlider.value, false));
   widgetCheck.addEventListener("change", () => setWidgetMode(widgetCheck.checked, true));
   launchCheck.addEventListener("change", () => {
     settings.openSettingsOnLaunch = launchCheck.checked;
@@ -204,18 +232,27 @@ function createUI() {
   });
 
   select("#btnFull").addEventListener("click", () => {
-    closeSettings(() => {
+    closeSettings(true, () => {
       setWidgetMode(false, true);
       applySize(sizeSelect.value);
     });
   });
   select("#btnWidget").addEventListener("click", () => {
-    closeSettings(() => setWidgetMode(true, true));
+    closeSettings(true, () => setWidgetMode(true, true));
   });
-  select("#btnClose").addEventListener("click", () => closeSettings());
+  select("#btnClose").addEventListener("click", () => closeSettings(true));
   overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) closeSettings();
+    if (e.target === overlay) closeSettings(true);
   });
+
+  if (wrap) {
+    wrap.addEventListener("wheel", (e) => {
+      if (document.body.classList.contains("settings-open")) return;
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.06 : 0.06;
+      applyScale((settings.scale || 1) + delta, true);
+    }, { passive: false });
+  }
 }
 
 function openSettings() {
@@ -229,13 +266,13 @@ function openSettings() {
 
   document.body.classList.add("settings-open");
   if (overlay) {
-    gsap.fromTo(overlay, { autoAlpha: 0 }, { duration: 0.35, autoAlpha: 1, ease: "power2.out" });
+    gsap.fromTo(overlay, { autoAlpha: 0 }, { duration: 0.3, autoAlpha: 1, ease: "power2.out" });
     overlay.classList.add("open");
   }
   if (card) {
     gsap.fromTo(card,
-      { scale: 0.92, y: 24, autoAlpha: 0 },
-      { duration: 0.45, scale: 1, y: 0, autoAlpha: 1, ease: "power3.out" }
+      { scale: 0.94, y: 20, autoAlpha: 0 },
+      { duration: 0.4, scale: 1, y: 0, autoAlpha: 1, ease: "power3.out" }
     );
   }
 
@@ -243,7 +280,6 @@ function openSettings() {
     requestAnimationFrame(() => {
       const from = wrap.getBoundingClientRect();
       const to = box.getBoundingClientRect();
-
       wrap.style.position = "fixed";
       wrap.style.zIndex = "210";
       wrap.style.pointerEvents = "none";
@@ -253,7 +289,7 @@ function openSettings() {
       wrap.style.height = from.height + "px";
 
       gsap.to(wrap, {
-        duration: 0.55,
+        duration: 0.5,
         ease: "power3.inOut",
         left: to.left,
         top: to.top,
@@ -268,20 +304,18 @@ function openSettings() {
   }
 }
 
-function closeSettings(after) {
-  if (isAnimatingLayout) return;
+function closeSettings(force, after) {
+  if (isAnimatingLayout && !force) return;
   isAnimatingLayout = true;
 
   const overlay = select("#settingsOverlay");
   const card = select("#settingsCard");
   const wrap = select(".gsapWrapper");
 
-  if (card) {
-    gsap.to(card, { duration: 0.25, scale: 0.96, y: 12, autoAlpha: 0, ease: "power2.in" });
-  }
+  if (card) gsap.to(card, { duration: 0.22, scale: 0.96, y: 10, autoAlpha: 0, ease: "power2.in" });
   if (overlay) {
     gsap.to(overlay, {
-      duration: 0.3,
+      duration: 0.28,
       autoAlpha: 0,
       ease: "power2.in",
       onComplete: () => {
@@ -292,30 +326,27 @@ function closeSettings(after) {
   }
 
   if (wrap) {
-    let targetLeft, targetTop, targetW, targetH;
+    let targetLeft, targetTop, targetW;
 
     if (settings.widgetMode) {
       targetLeft = settings.posX != null ? settings.posX : 40;
       targetTop = settings.posY != null ? settings.posY : 40;
-      const approx = Math.min(window.innerWidth, window.innerHeight) * 0.22;
-      targetW = Math.min(approx, 160);
-      targetH = targetW;
+      targetW = Math.min(window.innerWidth, window.innerHeight) * 0.22 * (settings.scale || 1);
+      targetW = Math.max(80, Math.min(targetW, 220));
     } else {
       const sizeMap = { small: 180, medium: 280, large: 420, full: 500 };
-      const s = sizeMap[settings.size] || 500;
-      targetW = Math.min(s, window.innerWidth * 0.85, window.innerHeight * 0.85);
-      targetH = targetW;
+      targetW = Math.min(sizeMap[settings.size] || 500, window.innerWidth * 0.85, window.innerHeight * 0.85);
       targetLeft = (window.innerWidth - targetW) / 2;
-      targetTop = (window.innerHeight - targetH) / 2;
+      targetTop = (window.innerHeight - targetW) / 2;
     }
 
     gsap.to(wrap, {
-      duration: 0.55,
+      duration: 0.5,
       ease: "power3.inOut",
       left: targetLeft,
       top: targetTop,
       width: targetW,
-      height: targetH,
+      height: targetW,
       onComplete: () => {
         if (settings.widgetMode) {
           wrap.style.position = "fixed";
@@ -354,6 +385,7 @@ function initDrag() {
   function onDown(e) {
     if (!document.body.classList.contains("widget-mode")) return;
     if (document.body.classList.contains("settings-open")) return;
+    if (e.target && e.target.classList && e.target.classList.contains("resize-handle")) return;
     if (isAnimatingLayout) return;
     dragging = true;
     wrap.classList.add("dragging");
@@ -372,8 +404,8 @@ function initDrag() {
     const pt = e.touches ? e.touches[0] : e;
     let nx = origLeft + (pt.clientX - startX);
     let ny = origTop + (pt.clientY - startY);
-    nx = Math.max(0, Math.min(window.innerWidth - 40, nx));
-    ny = Math.max(0, Math.min(window.innerHeight - 40, ny));
+    nx = Math.max(0, Math.min(window.innerWidth - 48, nx));
+    ny = Math.max(0, Math.min(window.innerHeight - 48, ny));
     wrap.style.left = nx + "px";
     wrap.style.top = ny + "px";
   }
@@ -382,7 +414,6 @@ function initDrag() {
     if (!dragging) return;
     dragging = false;
     wrap.classList.remove("dragging");
-    gsap.fromTo(wrap, { scale: 1.02 }, { duration: 0.2, scale: 1, ease: "power2.out" });
     settings.posX = parseInt(wrap.style.left, 10) || 0;
     settings.posY = parseInt(wrap.style.top, 10) || 0;
     saveSettings(settings);
@@ -396,9 +427,45 @@ function initDrag() {
   window.addEventListener("touchend", onUp);
 }
 
+function initResize(handle) {
+  let resizing = false;
+  let startY = 0;
+  let startScale = 1;
+
+  function onDown(e) {
+    if (!document.body.classList.contains("widget-mode")) return;
+    if (document.body.classList.contains("settings-open")) return;
+    resizing = true;
+    const pt = e.touches ? e.touches[0] : e;
+    startY = pt.clientY;
+    startScale = settings.scale || 1;
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function onMove(e) {
+    if (!resizing) return;
+    const pt = e.touches ? e.touches[0] : e;
+    const dy = startY - pt.clientY;
+    applyScale(startScale + dy / 120, false);
+  }
+
+  function onUp() {
+    resizing = false;
+  }
+
+  handle.addEventListener("mousedown", onDown);
+  handle.addEventListener("touchstart", onDown, { passive: false });
+  window.addEventListener("mousemove", onMove);
+  window.addEventListener("touchmove", onMove, { passive: false });
+  window.addEventListener("mouseup", onUp);
+  window.addEventListener("touchend", onUp);
+}
+
 window.onload = function () {
   createUI();
   initDrag();
+  applyScale(settings.scale || 1, false);
 
   if (settings.widgetMode) setWidgetMode(true, false);
   else applySize(settings.size || "full");
@@ -407,8 +474,8 @@ window.onload = function () {
     startAnimation();
     const wrap = select(".gsapWrapper");
     if (wrap) {
-      gsap.fromTo(wrap, { autoAlpha: 0, scale: 0.94 }, {
-        duration: 0.7,
+      gsap.fromTo(wrap, { autoAlpha: 0, scale: 0.96 }, {
+        duration: 0.65,
         autoAlpha: 1,
         scale: 1,
         ease: "power3.out",
@@ -416,14 +483,14 @@ window.onload = function () {
       });
     }
     if (settings.openSettingsOnLaunch !== false) {
-      setTimeout(() => openSettings(), 550);
+      setTimeout(() => openSettings(), 500);
     }
   });
 };
 
 function startAnimation() {
   if (!sec || !min || !hr) {
-    console.warn("Spider Clock: run Actions workflow for full SVG.");
+    console.warn("Spider Clock: run Actions → Build Full Spider Clock for the complete SVG.");
     gsap.set([".gsapWrapper", ".vline"], { autoAlpha: 1 });
     return;
   }
@@ -473,7 +540,6 @@ function startAnimation() {
     }
   });
 
-  // Spider face + hand morphs – structure unchanged
   if (hasMorph && face01 && face02) {
     let tg0 = gsap.timeline({
       repeat: -1, repeatDelay: 5, defaults: { duration: 0.5, ease: "power1.out" }
