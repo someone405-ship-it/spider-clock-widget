@@ -1,12 +1,16 @@
 {
   "name": "Spider Clock Widget",
   "short_name": "SpiderClock",
-  "description": "Real-time Spider Clock with gears - looks exactly like the Instagram animation",
+  "description": "Real-time Spider Clock with gears — Instagram-style animation. Install as a widget on mobile or PC.",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
   "background_color": "#a34a01",
   "theme_color": "#a34a01",
   "orientation": "any",
+  "categories": ["utilities", "lifestyle"],
+  "lang": "en",
   "icons": [
     {
       "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕷️</text></svg>",

@@ -1,29 +1,44 @@
-# How to get the full working Spider Clock
+# How to use Spider Clock Widget
 
-The **style.css** and **script.js** are already uploaded and optimized for mobile + PC with the exact Instagram orange gradient.
+## 1. Build the full clock (required once)
 
-## To complete the widget (2 main files + SVG)
+1. Go to **Actions** in the GitHub repo
+2. Select **Build Full Spider Clock**
+3. Click **Run workflow** → **Run workflow**
+4. Wait about 30 seconds
 
-1. Download the full `index.html` from the original high-quality source:
-   - https://raw.githubusercontent.com/piyush-soni777/ps-spider-clock/main/index.html
-   or from the CodePen export of https://codepen.io/ikrprojects/pen/zxrwywy
+This downloads the complete SVG (gears + spider) and commits `index.html`.
 
-2. Replace the `<head>` section with this improved version (already includes viewport for mobile):
+## 2. Open it
 
-```html
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="description" content="Spider Clock Widget - Real-time animated spider clock with gears. Perfect on mobile and desktop.">
-    <title>Spider Clock Widget</title>
-    <link rel="stylesheet" href="./style.css">
-</head>
-```
+- Clone the repo and open `index.html`, **or**
+- Enable **GitHub Pages** (Settings → Pages → Branch: `main` → Save)
 
-3. Make sure the scripts at the bottom point to our `script.js` and use the CDN for GSAP.
+## 3. Mobile
 
-4. The `style.css` already has perfect responsive rules for phone and PC.
+1. Open the site in Chrome or Safari
+2. **Add to Home Screen** / Install app
+3. Open the app → settings + live preview appear
+4. Choose **Open full clock** or adjust size
 
-Then open `index.html` — it will look exactly like the picture and work on both mobile and desktop.
+## 4. PC
 
-You can also enable **GitHub Pages** in the repo settings (Settings → Pages → Deploy from main) for an online link.
+1. Open or install the app
+2. **Start as widget** for a small floating clock
+3. **Drag** to move · **scroll wheel** or **corner handle** to scale
+4. Double-click the clock to toggle widget / full
+
+### Keyboard shortcuts
+
+| Key | Action |
+|-----|--------|
+| `S` | Open settings |
+| `Esc` | Close settings |
+| `W` | Toggle widget mode |
+| `F` | Full clock |
+| `+` / `-` | Scale up / down |
+| `0` | Reset scale to 100% |
+
+## 5. Settings saved
+
+Size, scale, position, widget mode, and toggles are stored in `localStorage` in your browser.
