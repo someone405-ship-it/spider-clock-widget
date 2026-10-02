@@ -1,0 +1,92 @@
+name: Build Full Spider Clock
+
+on:
+  workflow_dispatch:          # manual button
+  push:
+    paths:
+      - 'style.css'
+      - 'script.js'
+      - 'manifest.json'
+      - 'sw.js'
+      - '.github/workflows/build-full-index.yml'
+  schedule:
+    - cron: '0 3 * * 0'       # weekly Sunday 03:00 UTC
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download original full index.html
+        run: |
+          curl -sL "https://raw.githubusercontent.com/piyush-soni777/ps-spider-clock/main/index.html" -o original.html
+          echo "Downloaded size: $(wc -c < original.html)"
+
+      - name: Patch into complete production index.html
+        run: |
+          python3 << 'PY'
+          import re
+
+          with open("original.html") as f:
+              html = f.read()
+
+          new_head = '''<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="Spider Clock Widget - Real-time animated spider clock with gears. Add to home screen on mobile or install on PC.">
+    <meta name="theme-color" content="#a34a01">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Spider Clock">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕷️</text></svg>">
+    <title>Spider Clock Widget</title>
+    <link rel="stylesheet" href="./style.css">
+</head>'''
+
+          html = re.sub(r'<head>.*?</head>', new_head, html, flags=re.DOTALL)
+          html = html.replace('flood-color="#a0a0a0"', 'flood-color="#a34a01"')
+
+          new_scripts = '''<!-- GSAP core (free). MorphSVG is Club GreenSock – morphs gracefully degrade if unavailable -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/MorphSVGPlugin.min.js"></script>
+    <script src="./script.js"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js').catch(e => console.log('SW reg failed', e));
+        });
+      }
+    </script>'''
+
+          html = re.sub(r'<script[^>]*gsap[^>]*>.*?</script>\s*', '', html, flags=re.DOTALL | re.IGNORECASE)
+          html = re.sub(r'<script[^>]*MorphSVG[^>]*>.*?</script>\s*', '', html, flags=re.DOTALL | re.IGNORECASE)
+          html = re.sub(r'<script[^>]*src=["\']\./script\.js["\'][^>]*>.*?</script>\s*', '', html, flags=re.DOTALL | re.IGNORECASE)
+          html = html.replace('</body>', new_scripts + '\n</body>')
+
+          with open("index.html", "w") as f:
+              f.write(html)
+
+          print("Patched index.html size:", len(html))
+          print("Contains watchSVG:", "watchSVG" in html)
+          print("Contains face01:", "face01" in html)
+          print("Contains a34a01:", "a34a01" in html)
+          PY
+
+      - name: Commit & push complete index.html
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: rebuild full Spider Clock index.html from original source [skip ci]"
+            git push
+          fi

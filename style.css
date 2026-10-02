@@ -13,9 +13,11 @@ body {
   background-color: #a34a01;
   background: linear-gradient(135deg, #a34a01 0%, #654201 100%);
   background-repeat: no-repeat;
-  background-attachment: fixed;
+  background-attachment: scroll;
   color: #FFF;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .vline {
@@ -28,6 +30,7 @@ body {
   z-index: -1;
   opacity: 0.5;
   visibility: hidden;
+  pointer-events: none;
 }
 
 .gsapWrapper {
@@ -42,7 +45,6 @@ body {
 #wBody {
   position: relative;
   aspect-ratio: 1 / 1;
-  /* Excellent mobile + PC sizing */
   width: min(85vw, 85vh, 600px);
   max-width: 100%;
   max-height: 100%;
