@@ -133,6 +133,22 @@ body.widget-mode .vline { display: none; }
 
 body.widget-mode .drag-bar { display: block; }
 
+/* PC resize handle */
+.resize-handle {
+  display: none;
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px 0 8px 0;
+  background: linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.85) 50%);
+  cursor: nwse-resize;
+  z-index: 5;
+}
+
+body.widget-mode .resize-handle { display: block; }
+
 .settings-btn {
   position: fixed;
   bottom: 18px;
@@ -179,9 +195,7 @@ body.widget-mode .settings-btn {
   pointer-events: none;
 }
 
-.settings-overlay.open {
-  pointer-events: auto;
-}
+.settings-overlay.open { pointer-events: auto; }
 
 .settings-card {
   width: min(420px, 100%);
@@ -256,6 +270,18 @@ body.settings-open #wBody {
 }
 
 .setting-row input[type="checkbox"] { accent-color: #e07a2f; }
+
+.scale-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.scale-row input[type="range"] {
+  width: 100%;
+  accent-color: #e07a2f;
+  cursor: pointer;
+}
 
 .btn-row {
   display: flex;

@@ -1,36 +1,55 @@
 # 🕷️ Spider Clock Widget
 
-Real-time Spider Clock matching the Instagram design (orange gradient, white spider, rotating gears).
+Real-time animated Spider Clock matching the popular Instagram design — orange gradient, white spider, rotating gears.
 
-## What’s new
+**Works on mobile and PC.** PWA install · settings with live preview · draggable widget mode · free scale on desktop.
 
-### On open (mobile + PC)
-- **Settings screen** with **live preview** of the real clock
-- Choose size: Small / Medium / Large / Full
-- Toggle **Widget mode**
-- Option: show settings every time the app opens (or skip)
+## Features
 
-### PC – Widget mode
-- Small floating clock
-- **Drag** it anywhere on the screen
-- Position is saved
-- Transparent background so it feels like a desktop widget
-- Gear button (⚙) to reopen settings anytime
+- Exact Instagram-style look (gradient, spider, gears)
+- Real-time hour / minute / second hands
+- Smooth layout transitions (no teleporting)
+- **Settings** on open with **live preview**
+- **PC scale**: mouse wheel over the clock · corner resize handle in widget mode · slider in settings
+- **Widget mode**: small floating clock, drag anywhere, transparent background
+- Preferences saved in the browser
 
-### Buttons in settings
-- **Open full clock** – normal full-screen view
-- **Start as widget** – small + draggable (best on PC)
-- **Close** – keep current mode
+## Quick start
 
-## Get the complete animated SVG
+### 1. Build the full clock (required once)
 
-1. Repo → **Actions** → **Build Full Spider Clock** → **Run workflow**
-2. Wait ~30s – full `index.html` with all gears is committed
+The complete SVG is large. Build it with GitHub Actions:
 
-## Mobile
-Add to Home Screen (Chrome/Safari), then open the app → settings + preview appear first.
+1. Open **Actions** → **Build Full Spider Clock**
+2. Click **Run workflow** → **Run workflow**
+3. Wait ~30 seconds — full `index.html` is committed automatically
 
-## PC
-Install as app or open in browser → use **Start as widget** and drag the small clock.
+### 2. Use it
 
-Repo: https://github.com/someone405-ship-it/spider-clock-widget
+- Open `index.html` locally, or enable **GitHub Pages** (Settings → Pages → Deploy from `main`)
+- **Mobile**: browser menu → Add to Home Screen
+- **PC**: Install as app, or use **Start as widget** and drag / scale
+
+## Controls (PC)
+
+| Action | How |
+|--------|-----|
+| Scale | Scroll wheel on the clock, or drag the corner handle (widget mode), or use the Scale slider in settings |
+| Move | Widget mode → drag the clock |
+| Settings | ⚙ button |
+
+## Files
+
+| File | Role |
+|------|------|
+| `index.html` | Built by Actions (full SVG) |
+| `style.css` | Theme + responsive + widget UI |
+| `script.js` | Clock, settings, drag, scale |
+| `manifest.json` / `sw.js` | PWA |
+| `.github/workflows/build-full-index.yml` | Downloads & patches full source |
+
+## License / credits
+
+Based on the classic Spider Clock community ports (e.g. ikrProjects / ps-spider-clock). Improved for PWA, settings, smooth motion, and desktop widget use.
+
+**https://github.com/someone405-ship-it/spider-clock-widget**
