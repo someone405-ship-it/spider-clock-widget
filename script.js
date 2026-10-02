@@ -25,18 +25,20 @@ if (handHr01) gsap.set("#hand-hr", { attr: { d: handHr01 } });
 
 const hasMorph = typeof MorphSVGPlugin !== "undefined";
 if (hasMorph) {
-  try { gsap.registerPlugin(MorphSVGPlugin); } catch (e) { console.warn("MorphSVG not available"); }
+  try { gsap.registerPlugin(MorphSVGPlugin); } catch (e) {}
 }
 
 const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const STORAGE_KEY = "spiderClockSettings_v3";
+const STORAGE_KEY = "spiderClockSettings_v4";
 const defaultSettings = {
   size: "full",
   widgetMode: false,
+  editMode: false,
   openSettingsOnLaunch: true,
   posX: null,
   posY: null,
   scale: 1,
+  clockPx: null,
   showDigital: false,
   pauseWhenHidden: true
 };
@@ -48,7 +50,6 @@ function loadSettings() {
     return { ...defaultSettings };
   }
 }
-
 function saveSettings(s) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (_) {}
 }
@@ -59,14 +60,21 @@ let isAnimatingLayout = false;
 function clampScale(v) {
   return Math.min(2.5, Math.max(0.35, Number(v) || 1));
 }
+function clampPx(px) {
+  return Math.min(Math.min(window.innerWidth, window.innerHeight) * 0.95, Math.max(80, px));
+}
 
 function applyScale(scale, animate) {
   settings.scale = clampScale(scale);
   const body = select("#wBody");
   if (!body) return;
-  const dur = reduceMotion ? 0 : (animate ? 0.25 : 0);
-  if (dur) gsap.to(body, { duration: dur, scale: settings.scale, transformOrigin: "50% 50%", ease: "power2.out" });
-  else gsap.set(body, { scale: settings.scale, transformOrigin: "50% 50%" });
+  if (settings.editMode || settings.widgetMode) {
+    gsap.set(body, { scale: 1, transformOrigin: "50% 50%" });
+  } else {
+    const dur = reduceMotion ? 0 : (animate ? 0.25 : 0);
+    if (dur) gsap.to(body, { duration: dur, scale: settings.scale, transformOrigin: "50% 50%", ease: "power2.out" });
+    else gsap.set(body, { scale: settings.scale, transformOrigin: "50% 50%" });
+  }
   const slider = select("#scaleSlider");
   const label = select("#scaleLabel");
   if (slider) slider.value = settings.scale;
@@ -74,10 +82,28 @@ function applyScale(scale, animate) {
   saveSettings(settings);
 }
 
+function applyClockPx(px, animate) {
+  const body = select("#wBody");
+  if (!body) return;
+  const size = clampPx(px);
+  settings.clockPx = size;
+  body.style.transition = animate && !reduceMotion ? "width 0.2s ease" : "none";
+  body.style.width = size + "px";
+  body.style.maxWidth = "none";
+  gsap.set(body, { scale: 1 });
+  saveSettings(settings);
+  const label = select("#scaleLabel");
+  if (label) label.textContent = Math.round(size) + "px";
+}
+
 function applySize(size) {
   document.body.classList.remove("size-small", "size-medium", "size-large", "size-full");
   document.body.classList.add("size-" + (size || "full"));
   settings.size = size || "full";
+  if (!settings.editMode && !settings.widgetMode) {
+    const body = select("#wBody");
+    if (body) { body.style.width = ""; body.style.maxWidth = ""; }
+  }
   saveSettings(settings);
 }
 
@@ -94,52 +120,91 @@ function updateDigital() {
   const el = select("#digitalTime");
   if (!el || !settings.showDigital) return;
   const d = new Date();
-  el.textContent = String(d.getHours()).padStart(2, "0") + ":" +
+  el.textContent =
+    String(d.getHours()).padStart(2, "0") + ":" +
     String(d.getMinutes()).padStart(2, "0") + ":" +
     String(d.getSeconds()).padStart(2, "0");
+}
+
+function ensureFloating(wrap) {
+  if (!wrap) return;
+  wrap.style.position = "fixed";
+  wrap.style.zIndex = "50";
+  wrap.style.pointerEvents = "";
+  if (settings.posX != null && settings.posY != null) {
+    wrap.style.left = settings.posX + "px";
+    wrap.style.top = settings.posY + "px";
+  } else {
+    const rect = wrap.getBoundingClientRect();
+    const x = Math.max(20, (window.innerWidth - rect.width) / 2);
+    const y = Math.max(20, (window.innerHeight - rect.height) / 2);
+    wrap.style.left = x + "px";
+    wrap.style.top = y + "px";
+    settings.posX = x;
+    settings.posY = y;
+  }
+}
+
+function setEditMode(on) {
+  settings.editMode = !!on;
+  const body = document.body;
+  const wrap = select(".gsapWrapper");
+  body.classList.toggle("edit-mode", !!on);
+
+  if (on) {
+    if (!settings.widgetMode) body.classList.add("widget-mode");
+    ensureFloating(wrap);
+    const bodyEl = select("#wBody");
+    let px = settings.clockPx;
+    if (!px && bodyEl) px = bodyEl.getBoundingClientRect().width || 200;
+    applyClockPx(px || 200, false);
+    showToast("Edit mode: drag to move · drag corners to resize · E or Esc to exit");
+  } else {
+    body.classList.remove("edit-mode");
+    if (!settings.widgetMode) {
+      body.classList.remove("widget-mode");
+      const w = select(".gsapWrapper");
+      if (w) {
+        w.style.position = "";
+        w.style.left = "";
+        w.style.top = "";
+        w.style.zIndex = "";
+      }
+      applySize(settings.size || "full");
+      applyScale(settings.scale || 1, true);
+    }
+    showToast("Edit mode off");
+  }
+  saveSettings(settings);
+  const chk = select("#editCheck");
+  if (chk) chk.checked = !!on;
+  const editBtn = select("#editModeBtn");
+  if (editBtn) editBtn.classList.toggle("active", !!on);
 }
 
 function setWidgetMode(on, animate) {
   settings.widgetMode = !!on;
   const wrap = select(".gsapWrapper");
   const body = document.body;
-  const anim = animate && !reduceMotion;
 
   if (on) {
     applySize("small");
     body.classList.add("widget-mode");
     if (wrap) {
-      const targetX = settings.posX != null ? settings.posX : 40;
-      const targetY = settings.posY != null ? settings.posY : 40;
-      wrap.style.position = "fixed";
-      wrap.style.zIndex = "50";
-      wrap.style.pointerEvents = "";
-      if (anim) {
-        const rect = wrap.getBoundingClientRect();
-        gsap.fromTo(wrap, { left: rect.left, top: rect.top }, {
-          duration: 0.5, ease: "power3.inOut", left: targetX, top: targetY,
-          onComplete: () => { wrap.style.left = targetX + "px"; wrap.style.top = targetY + "px"; }
-        });
-      } else {
-        wrap.style.left = targetX + "px";
-        wrap.style.top = targetY + "px";
-      }
+      ensureFloating(wrap);
+      applyClockPx(settings.clockPx || 160, false);
     }
   } else {
-    body.classList.remove("widget-mode");
-    applySize(settings.size === "small" ? "full" : settings.size);
-    if (wrap) {
-      if (anim) {
-        gsap.to(wrap, {
-          duration: 0.45, ease: "power3.inOut",
-          left: window.innerWidth / 2 - 100, top: window.innerHeight / 2 - 100,
-          onComplete: () => {
-            wrap.style.position = ""; wrap.style.left = ""; wrap.style.top = ""; wrap.style.zIndex = "";
-          }
-        });
-      } else {
-        wrap.style.position = ""; wrap.style.left = ""; wrap.style.top = ""; wrap.style.zIndex = "";
+    if (!settings.editMode) {
+      body.classList.remove("widget-mode");
+      applySize(settings.size === "small" ? "full" : settings.size);
+      if (wrap) {
+        wrap.style.position = "";
+        wrap.style.left = "";
+        wrap.style.top = "";
+        wrap.style.zIndex = "";
       }
+      applyScale(settings.scale || 1, false);
     }
   }
   saveSettings(settings);
@@ -158,7 +223,7 @@ function showToast(msg, ms) {
   t.textContent = msg;
   t.classList.add("show");
   clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.classList.remove("show"), ms || 3200);
+  t._timer = setTimeout(() => t.classList.remove("show"), ms || 2800);
 }
 
 function createUI() {
@@ -170,10 +235,18 @@ function createUI() {
   btn.addEventListener("click", () => openSettings());
   document.body.appendChild(btn);
 
+  const editBtn = document.createElement("button");
+  editBtn.id = "editModeBtn";
+  editBtn.className = "edit-mode-btn";
+  editBtn.title = "Edit mode (E) — move & resize with mouse";
+  editBtn.setAttribute("aria-label", "Toggle edit mode");
+  editBtn.innerHTML = "⛶";
+  editBtn.addEventListener("click", () => setEditMode(!settings.editMode));
+  document.body.appendChild(editBtn);
+
   const digital = document.createElement("div");
   digital.id = "digitalTime";
   digital.className = "digital-time";
-  digital.setAttribute("aria-hidden", "true");
   document.body.appendChild(digital);
 
   const wrap = select(".gsapWrapper");
@@ -181,16 +254,20 @@ function createUI() {
     const bar = document.createElement("div");
     bar.className = "drag-bar";
     wrap.appendChild(bar);
-    const handle = document.createElement("div");
-    handle.className = "resize-handle";
-    handle.title = "Drag to scale";
-    handle.setAttribute("aria-label", "Resize clock");
-    wrap.appendChild(handle);
-    initResize(handle);
+
+    ["nw", "ne", "sw", "se"].forEach((pos) => {
+      const h = document.createElement("div");
+      h.className = "resize-handle rh-" + pos;
+      h.dataset.corner = pos;
+      h.title = "Drag to resize";
+      wrap.appendChild(h);
+      initCornerResize(h, pos);
+    });
 
     wrap.addEventListener("dblclick", (e) => {
       if (document.body.classList.contains("settings-open")) return;
       if (e.target.classList && e.target.classList.contains("resize-handle")) return;
+      if (settings.editMode) { setEditMode(false); return; }
       setWidgetMode(!settings.widgetMode, true);
       showToast(settings.widgetMode ? "Widget mode on" : "Full clock");
     });
@@ -198,7 +275,13 @@ function createUI() {
     wrap.addEventListener("wheel", (e) => {
       if (document.body.classList.contains("settings-open")) return;
       e.preventDefault();
-      applyScale((settings.scale || 1) + (e.deltaY > 0 ? -0.06 : 0.06), true);
+      if (settings.editMode || settings.widgetMode) {
+        const body = select("#wBody");
+        const cur = (body && body.getBoundingClientRect().width) || settings.clockPx || 200;
+        applyClockPx(cur + (e.deltaY > 0 ? -12 : 12), false);
+      } else {
+        applyScale((settings.scale || 1) + (e.deltaY > 0 ? -0.06 : 0.06), true);
+      }
     }, { passive: false });
   }
 
@@ -207,11 +290,10 @@ function createUI() {
   overlay.id = "settingsOverlay";
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-modal", "true");
-  overlay.setAttribute("aria-label", "Spider Clock settings");
   overlay.innerHTML = `
     <div class="settings-card" id="settingsCard">
       <h1>🕷️ Spider Clock</h1>
-      <p class="subtitle">Settings · live preview · shortcuts</p>
+      <p class="subtitle">Settings · live preview</p>
       <div class="preview-box" id="previewBox"><div class="preview-label">Live preview</div></div>
       <div class="setting-row">
         <label for="sizeSelect">Preset size</label>
@@ -227,7 +309,11 @@ function createUI() {
         <input type="range" id="scaleSlider" min="0.35" max="2.5" step="0.05" value="1">
       </div>
       <div class="setting-row">
-        <label for="widgetCheck">Widget mode (drag + scale)</label>
+        <label for="editCheck">Edit mode (PC: move + resize with mouse)</label>
+        <input type="checkbox" id="editCheck">
+      </div>
+      <div class="setting-row">
+        <label for="widgetCheck">Widget mode</label>
         <input type="checkbox" id="widgetCheck">
       </div>
       <div class="setting-row">
@@ -245,12 +331,13 @@ function createUI() {
       <div class="btn-row">
         <button type="button" class="btn btn-primary" id="btnFull">Open full clock</button>
         <button type="button" class="btn btn-widget" id="btnWidget">Start as widget</button>
+        <button type="button" class="btn btn-edit" id="btnEdit">Edit mode</button>
         <button type="button" class="btn btn-secondary" id="btnClose">Close</button>
         <button type="button" class="btn btn-ghost" id="btnReset">Reset</button>
       </div>
       <p class="hint">
-        <strong>Shortcuts:</strong> S settings · Esc close · W widget · F full · +/− scale · 0 reset scale · double-click toggles widget<br>
-        PC: scroll wheel to scale · corner handle in widget mode
+        <strong>PC Edit mode:</strong> press <kbd>E</kbd> or ⛶ · drag clock to move · drag corner handles to resize · Esc / E to exit<br>
+        Shortcuts: S settings · W widget · F full · +/− scale
       </p>
     </div>
   `;
@@ -262,6 +349,7 @@ function createUI() {
   const scaleSlider = select("#scaleSlider");
   const digitalCheck = select("#digitalCheck");
   const pauseCheck = select("#pauseCheck");
+  const editCheck = select("#editCheck");
 
   sizeSelect.value = settings.size || "full";
   widgetCheck.checked = !!settings.widgetMode;
@@ -270,13 +358,19 @@ function createUI() {
   select("#scaleLabel").textContent = Math.round((settings.scale || 1) * 100) + "%";
   digitalCheck.checked = !!settings.showDigital;
   pauseCheck.checked = settings.pauseWhenHidden !== false;
+  editCheck.checked = !!settings.editMode;
 
   sizeSelect.addEventListener("change", () => {
-    if (!settings.widgetMode) applySize(sizeSelect.value);
+    if (!settings.widgetMode && !settings.editMode) applySize(sizeSelect.value);
     else { settings.size = sizeSelect.value; saveSettings(settings); }
   });
-  scaleSlider.addEventListener("input", () => applyScale(scaleSlider.value, false));
+  scaleSlider.addEventListener("input", () => {
+    if (settings.editMode || settings.widgetMode) {
+      applyClockPx(80 + (Number(scaleSlider.value) - 0.35) * (400 / 2.15), false);
+    } else applyScale(scaleSlider.value, false);
+  });
   widgetCheck.addEventListener("change", () => setWidgetMode(widgetCheck.checked, true));
+  editCheck.addEventListener("change", () => setEditMode(editCheck.checked));
   launchCheck.addEventListener("change", () => {
     settings.openSettingsOnLaunch = launchCheck.checked;
     saveSettings(settings);
@@ -288,21 +382,30 @@ function createUI() {
   });
 
   select("#btnFull").addEventListener("click", () => {
-    closeSettings(true, () => { setWidgetMode(false, true); applySize(sizeSelect.value); });
+    closeSettings(true, () => {
+      setEditMode(false);
+      setWidgetMode(false, true);
+      applySize(sizeSelect.value);
+    });
   });
   select("#btnWidget").addEventListener("click", () => {
     closeSettings(true, () => setWidgetMode(true, true));
+  });
+  select("#btnEdit").addEventListener("click", () => {
+    closeSettings(true, () => setEditMode(true));
   });
   select("#btnClose").addEventListener("click", () => closeSettings(true));
   select("#btnReset").addEventListener("click", () => {
     settings = { ...defaultSettings };
     saveSettings(settings);
+    setEditMode(false);
+    setWidgetMode(false, true);
     applyScale(1, true);
     applySize("full");
-    setWidgetMode(false, true);
     setDigital(false);
     sizeSelect.value = "full";
     widgetCheck.checked = false;
+    editCheck.checked = false;
     launchCheck.checked = true;
     digitalCheck.checked = false;
     pauseCheck.checked = true;
@@ -317,21 +420,39 @@ function onKeyDown(e) {
   if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
   if (e.key === "Escape") {
     if (document.body.classList.contains("settings-open")) closeSettings(true);
+    else if (settings.editMode) setEditMode(false);
     return;
   }
+  if (e.key === "e" || e.key === "E") { setEditMode(!settings.editMode); return; }
   if (e.key === "s" || e.key === "S") {
     if (!document.body.classList.contains("settings-open")) openSettings();
     return;
   }
   if (e.key === "w" || e.key === "W") { setWidgetMode(!settings.widgetMode, true); return; }
   if (e.key === "f" || e.key === "F") {
+    setEditMode(false);
     setWidgetMode(false, true);
     applySize(settings.size || "full");
     return;
   }
-  if (e.key === "+" || e.key === "=") { applyScale((settings.scale || 1) + 0.08, true); return; }
-  if (e.key === "-" || e.key === "_") { applyScale((settings.scale || 1) - 0.08, true); return; }
-  if (e.key === "0") { applyScale(1, true); }
+  if (e.key === "+" || e.key === "=") {
+    if (settings.editMode || settings.widgetMode) {
+      const body = select("#wBody");
+      applyClockPx(((body && body.getBoundingClientRect().width) || 200) + 16, false);
+    } else applyScale((settings.scale || 1) + 0.08, true);
+    return;
+  }
+  if (e.key === "-" || e.key === "_") {
+    if (settings.editMode || settings.widgetMode) {
+      const body = select("#wBody");
+      applyClockPx(((body && body.getBoundingClientRect().width) || 200) - 16, false);
+    } else applyScale((settings.scale || 1) - 0.08, true);
+    return;
+  }
+  if (e.key === "0") {
+    if (settings.editMode || settings.widgetMode) applyClockPx(200, true);
+    else applyScale(1, true);
+  }
 }
 
 function openSettings() {
@@ -388,12 +509,10 @@ function closeSettings(force, after) {
     });
   }
   if (wrap) {
-    let targetLeft, targetTop, targetW;
-    if (settings.widgetMode) {
-      targetLeft = settings.posX != null ? settings.posX : 40;
-      targetTop = settings.posY != null ? settings.posY : 40;
-      targetW = Math.max(80, Math.min(220, Math.min(window.innerWidth, window.innerHeight) * 0.22));
-    } else {
+    let targetLeft = settings.posX != null ? settings.posX : 40;
+    let targetTop = settings.posY != null ? settings.posY : 40;
+    let targetW = settings.clockPx || 200;
+    if (!settings.widgetMode && !settings.editMode) {
       const sizeMap = { small: 180, medium: 280, large: 420, full: 500 };
       targetW = Math.min(sizeMap[settings.size] || 500, window.innerWidth * 0.85, window.innerHeight * 0.85);
       targetLeft = (window.innerWidth - targetW) / 2;
@@ -403,7 +522,7 @@ function closeSettings(force, after) {
       duration: reduceMotion ? 0 : 0.5, ease: "power3.inOut",
       left: targetLeft, top: targetTop, width: targetW, height: targetW,
       onComplete: () => {
-        if (settings.widgetMode) {
+        if (settings.widgetMode || settings.editMode) {
           wrap.style.position = "fixed";
           wrap.style.left = targetLeft + "px";
           wrap.style.top = targetTop + "px";
@@ -430,15 +549,24 @@ function closeSettings(force, after) {
   }
 }
 
+function isHandle(el) {
+  return el && el.classList && el.classList.contains("resize-handle");
+}
+
 function initDrag() {
   const wrap = select(".gsapWrapper");
   if (!wrap) return;
   let dragging = false, startX = 0, startY = 0, origLeft = 0, origTop = 0;
+
+  function canMove() {
+    return (settings.widgetMode || settings.editMode) &&
+      !document.body.classList.contains("settings-open") &&
+      !isAnimatingLayout;
+  }
+
   function onDown(e) {
-    if (!document.body.classList.contains("widget-mode")) return;
-    if (document.body.classList.contains("settings-open")) return;
-    if (e.target && e.target.classList && e.target.classList.contains("resize-handle")) return;
-    if (isAnimatingLayout) return;
+    if (!canMove()) return;
+    if (isHandle(e.target)) return;
     dragging = true;
     wrap.classList.add("dragging");
     gsap.killTweensOf(wrap);
@@ -462,6 +590,7 @@ function initDrag() {
     settings.posY = parseInt(wrap.style.top, 10) || 0;
     saveSettings(settings);
   }
+
   wrap.addEventListener("mousedown", onDown);
   wrap.addEventListener("touchstart", onDown, { passive: false });
   window.addEventListener("mousemove", onMove);
@@ -470,24 +599,56 @@ function initDrag() {
   window.addEventListener("touchend", onUp);
 }
 
-function initResize(handle) {
-  let resizing = false, startY = 0, startScale = 1;
+function initCornerResize(handle, corner) {
+  let resizing = false;
+  let centerX = 0, centerY = 0;
+
   function onDown(e) {
-    if (!document.body.classList.contains("widget-mode")) return;
+    if (!settings.editMode && !settings.widgetMode) return;
     if (document.body.classList.contains("settings-open")) return;
     resizing = true;
-    const pt = e.touches ? e.touches[0] : e;
-    startY = pt.clientY;
-    startScale = settings.scale || 1;
+    document.body.classList.add("is-resizing");
+    const wrap = select(".gsapWrapper");
+    if (wrap) {
+      const r = wrap.getBoundingClientRect();
+      centerX = r.left + r.width / 2;
+      centerY = r.top + r.height / 2;
+    }
     e.preventDefault();
     e.stopPropagation();
   }
+
   function onMove(e) {
     if (!resizing) return;
     const pt = e.touches ? e.touches[0] : e;
-    applyScale(startScale + (startY - pt.clientY) / 120, false);
+    const dx = pt.clientX - centerX;
+    const dy = pt.clientY - centerY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const newSize = clampPx(dist * 2);
+    applyClockPx(newSize, false);
+
+    const wrap = select(".gsapWrapper");
+    if (wrap) {
+      const half = newSize / 2;
+      let left = Math.max(0, Math.min(window.innerWidth - 40, centerX - half));
+      let top = Math.max(0, Math.min(window.innerHeight - 40, centerY - half));
+      wrap.style.left = left + "px";
+      wrap.style.top = top + "px";
+    }
   }
-  function onUp() { resizing = false; }
+
+  function onUp() {
+    if (!resizing) return;
+    resizing = false;
+    document.body.classList.remove("is-resizing");
+    const wrap = select(".gsapWrapper");
+    if (wrap) {
+      settings.posX = parseInt(wrap.style.left, 10) || 0;
+      settings.posY = parseInt(wrap.style.top, 10) || 0;
+      saveSettings(settings);
+    }
+  }
+
   handle.addEventListener("mousedown", onDown);
   handle.addEventListener("touchstart", onDown, { passive: false });
   window.addEventListener("mousemove", onMove);
@@ -510,8 +671,11 @@ window.onload = function () {
   initVisibility();
   applyScale(settings.scale || 1, false);
   setDigital(!!settings.showDigital);
-  if (settings.widgetMode) setWidgetMode(true, false);
+
+  if (settings.editMode) setEditMode(true);
+  else if (settings.widgetMode) setWidgetMode(true, false);
   else applySize(settings.size || "full");
+
   requestAnimationFrame(() => {
     startAnimation();
     const wrap = select(".gsapWrapper");
@@ -535,6 +699,7 @@ function startAnimation() {
   setTimeSec();
   setTimeMinHr();
   gsap.set(".vline", { autoAlpha: 1 });
+
   gsap.to(".cw.t24", {
     duration: 1.2, rotation: "-=15", transformOrigin: "50% 50%", ease: "power1.inOut",
     onComplete: function () { this.invalidate().delay(0.8).restart(true); }
@@ -569,6 +734,7 @@ function startAnimation() {
       this.invalidate().delay(0).restart(true);
     }
   });
+
   if (hasMorph && face01 && face02) {
     let tg0 = gsap.timeline({ repeat: -1, repeatDelay: 5, defaults: { duration: 0.5, ease: "power1.out" } })
       .to("#face", {
@@ -581,6 +747,7 @@ function startAnimation() {
     createHandMorphTimeline(min, "#hand-min", "#handMin01", "#handMin02", 5, [5, 175, 185, 355]);
     createHandMorphTimeline(hr, "#hand-hr", "#handHr01", "#handHr02", 7, [2, 178, 182, 358]);
   }
+
   function createHandMorphTimeline(handEl, handSel, path1, path2, delaySec, ranges) {
     let tg = gsap.timeline({ repeat: -1, repeatDelay: 5, defaults: { duration: 1.5, ease: "power2.inOut" } })
       .delay(delaySec)
@@ -602,6 +769,7 @@ function startAnimation() {
         }
       });
   }
+
   function setTimeSec() {
     const rot = geSecRotation();
     const cur = gsap.getProperty(sec, "rotation") || 0;
