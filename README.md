@@ -1,58 +1,58 @@
-# 🕷️ Spider Clock Widget — Real Mobile + PC Widget
+# 🕷️ Spider Clock Widget
 
-Looks **exactly** like the Instagram Spider Clock (orange gradient, white spider, rotating gears).
+Real-time Spider Clock that matches the Instagram design (orange gradient, white spider, rotating gears).
 
-## Mobile (Android / iOS) — “Long press → find & place” style
+Works as a **PWA** on mobile (Add to Home Screen) and as an installable / draggable window on PC.
 
-Because Android home-screen widgets cannot run full GSAP/SVG animations, we made a **PWA** that behaves as close as possible:
+## ⚡ Get the COMPLETE working file (full SVG + gears)
 
-1. Open the live page (or host this repo with GitHub Pages).
-2. On **Android Chrome**:  
-   - Menu (⋮) → **Add to Home screen** / **Install app**  
-   - Or long-press the page → Add to Home screen.
-3. On **iPhone Safari**: Share → **Add to Home Screen**.
-4. The Spider Clock now appears as an app icon on your home screen. Tap it to open the full animated clock (fullscreen, no browser bars).
+The full SVG is large, so a **GitHub Actions workflow** downloads it and builds a production-ready `index.html` for you.
 
-This is the standard way to get a “widget-like” experience for complex animated clocks.
+### How to run it
 
-## PC / Desktop — Drag & place the clock
+1. Go to the repo → **Actions** tab  
+2. Select **“Build Full Spider Clock”**  
+3. Click **Run workflow** → **Run workflow**  
+4. Wait ~30 seconds  
+5. The workflow commits a complete `index.html` with all gears + spider paths
 
-1. Open `index.html` (or the GitHub Pages link) in Chrome / Edge / Firefox.
-2. Click the **Install** / **App available** icon in the address bar (or menu → Install Spider Clock).
-3. It opens in its own window.  
-   - You can **drag** the window anywhere on your desktop.  
-   - Resize it freely.  
-   - Pin it / keep it always on top if your OS supports it.
+After it finishes you can open / download the full `index.html` and it will look exactly like the picture.
 
-Alternatively just keep the browser tab open and drag the browser window.
+You can also trigger it by pushing changes to `style.css` / `script.js`.
+
+## Bugs fixed in this version
+
+- Null-safety: no more crashes if SVG elements are missing
+- MorphSVG gracefully degrades when the Club plugin is unavailable
+- Removed undeclared `changingHr` variable
+- Cleaner GSAP timelines
+- Better mobile performance (no `background-attachment: fixed`)
+- Touch / tap improvements
+
+## Mobile (Add to Home Screen)
+
+1. Open the page (after workflow has built the full index)
+2. Chrome Android → ⋮ → **Add to Home screen** / Install
+3. Safari iOS → Share → **Add to Home Screen**
+
+## PC
+
+1. Open the page
+2. Install as app (address-bar install icon) → gets its own draggable window
+3. Or just keep the browser window open and drag it
 
 ## Files
 
-| File | Purpose |
-|------|---------|
-| `index.html` | Main page + PWA meta (add the full SVG paths from original for complete gears) |
-| `style.css` | Exact Instagram gradient + perfect mobile/PC responsive sizing |
-| `script.js` | Real-time clock + gear rotation + spider logic |
-| `manifest.json` | PWA install config |
-| `sw.js` | Offline / install support |
+| File | Role |
+|------|------|
+| `index.html` | Built by the Actions workflow (full SVG) |
+| `style.css` | Exact Instagram gradient + responsive |
+| `script.js` | Fixed real-time + gear logic |
+| `manifest.json` + `sw.js` | PWA / offline |
+| `.github/workflows/build-full-index.yml` | Auto-downloads & patches the full clock |
 
-## Get the complete animated SVG (gears + spider)
+## Enable free online link
 
-The full path data is large.  
-1. Download: https://raw.githubusercontent.com/piyush-soni777/ps-spider-clock/main/index.html  
-2. Copy the entire `<svg id="watchSVG"> ... </svg>` and the hidden `<svg>` with `<defs>` into our `index.html`.  
-3. Keep our improved `<head>` (viewport + PWA) and the bottom scripts.
+Settings → Pages → Deploy from branch `main` → Save.
 
-Or use the live demo of the original and view-source.
-
-## Enable free online link (GitHub Pages)
-
-Repo → Settings → Pages → Source = Deploy from a branch → `main` → Save.  
-Then share the Pages URL so anyone can Add to Home Screen or Install on PC.
-
-## Credits
-
-Based on the classic Spider Clock / Halloween Spider Time (ikrProjects CodePen + community ports).  
-Improved for exact visual match, mobile PWA install, and desktop window experience.
-
-**Repo**: https://github.com/someone405-ship-it/spider-clock-widget
+Repo: https://github.com/someone405-ship-it/spider-clock-widget
