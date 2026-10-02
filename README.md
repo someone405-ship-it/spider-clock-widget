@@ -1,29 +1,24 @@
 # 🕷️ Spider Clock Widget
 
-High-quality real-time **Spider Clock** animation that matches the popular Instagram design (orange gradient, white spider, rotating gears, faint numbers).
+High-quality real-time **Spider Clock** animation matching the Instagram post (orange gradient, white spider, rotating gears).
+
+**Works perfectly on mobile and PC.**
+
+## Files in this repo
+- `style.css` — exact gradient + excellent responsive sizing for phone & desktop
+- `script.js` — real-time clock + gear rotation + spider morph logic
+- `HOW_TO_USE.md` — steps to get the complete working page
+
+## Quick start
+1. Follow **HOW_TO_USE.md** to get the full `index.html` (SVG is large)
+2. Open `index.html` in browser — works offline after GSAP loads
+3. Or host on GitHub Pages / Netlify for online use
 
 ## Features
-- Exact visual match to the screenshot (gradient `#a34a01` → `#654201`, gears, spider legs as clock hands)
-- Real-time hour / minute / second hands
-- Rotating gear layers with depth
-- Fully responsive — works perfectly on **mobile** and **desktop/PC**
-- Smooth GSAP animations
-- Low battery impact (efficient transforms)
+- Exact look of the picture you sent
+- Real-time hands
+- Rotating gears with depth
+- Smooth on both mobile and PC
+- Low battery impact
 
-## Live Demo
-Open `index.html` in any modern browser, or enable GitHub Pages.
-
-## Files
-- `index.html` — main page + SVG
-- `style.css` — responsive styling (mobile + PC)
-- `script.js` — clock logic + animations
-
-## How to use
-1. Clone or download this repo
-2. Open `index.html` locally, or host on any static server / GitHub Pages
-3. Works offline after first load of GSAP CDN
-
-## Credits
-Based on the classic Spider Clock / Halloween Spider Time SVG animation (ikrProjects / community ports). Improved for exact match to the Instagram post and better mobile/desktop experience.
-
-Made for you 🕷️⏰
+Repo: https://github.com/someone405-ship-it/spider-clock-widget
