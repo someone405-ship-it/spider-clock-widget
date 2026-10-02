@@ -1,5 +1,4 @@
 let select = e => document.querySelector(e);
-let selectAll = e => document.querySelectorAll(e);
 
 function safeAttr(id, attr) {
   const el = select(id);
@@ -51,6 +50,7 @@ function saveSettings(s) {
 }
 
 let settings = loadSettings();
+let isAnimatingLayout = false;
 
 function applySize(size) {
   document.body.classList.remove("size-small", "size-medium", "size-large", "size-full");
@@ -59,22 +59,72 @@ function applySize(size) {
   saveSettings(settings);
 }
 
-function setWidgetMode(on) {
+function setWidgetMode(on, animate = true) {
   settings.widgetMode = !!on;
-  document.body.classList.toggle("widget-mode", !!on);
+  const wrap = select(".gsapWrapper");
+  const body = document.body;
+
   if (on) {
     applySize("small");
-    const wrap = select(".gsapWrapper");
-    if (wrap && settings.posX != null && settings.posY != null) {
-      wrap.style.left = settings.posX + "px";
-      wrap.style.top = settings.posY + "px";
+    body.classList.add("widget-mode");
+    if (wrap) {
+      const targetX = settings.posX != null ? settings.posX : 40;
+      const targetY = settings.posY != null ? settings.posY : 40;
+      wrap.style.position = "fixed";
+      wrap.style.zIndex = "50";
+      wrap.style.pointerEvents = "";
+      if (animate && !isAnimatingLayout) {
+        const rect = wrap.getBoundingClientRect();
+        gsap.fromTo(wrap,
+          { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
+          {
+            duration: 0.55,
+            ease: "power3.inOut",
+            left: targetX,
+            top: targetY,
+            width: "auto",
+            height: "auto",
+            onComplete: () => {
+              wrap.style.left = targetX + "px";
+              wrap.style.top = targetY + "px";
+            }
+          }
+        );
+      } else {
+        wrap.style.left = targetX + "px";
+        wrap.style.top = targetY + "px";
+        wrap.style.width = "auto";
+        wrap.style.height = "auto";
+      }
     }
   } else {
+    body.classList.remove("widget-mode");
     applySize(settings.size === "small" ? "full" : settings.size);
-    const wrap = select(".gsapWrapper");
     if (wrap) {
-      wrap.style.left = "";
-      wrap.style.top = "";
+      if (animate && !isAnimatingLayout) {
+        const rect = wrap.getBoundingClientRect();
+        gsap.to(wrap, {
+          duration: 0.5,
+          ease: "power3.inOut",
+          left: (window.innerWidth - rect.width) / 2,
+          top: (window.innerHeight - rect.height) / 2,
+          onComplete: () => {
+            wrap.style.position = "";
+            wrap.style.left = "";
+            wrap.style.top = "";
+            wrap.style.width = "";
+            wrap.style.height = "";
+            wrap.style.zIndex = "";
+          }
+        });
+      } else {
+        wrap.style.position = "";
+        wrap.style.left = "";
+        wrap.style.top = "";
+        wrap.style.width = "";
+        wrap.style.height = "";
+        wrap.style.zIndex = "";
+      }
     }
   }
   saveSettings(settings);
@@ -100,7 +150,7 @@ function createUI() {
   overlay.className = "settings-overlay";
   overlay.id = "settingsOverlay";
   overlay.innerHTML = `
-    <div class="settings-card">
+    <div class="settings-card" id="settingsCard">
       <h1>🕷️ Spider Clock</h1>
       <p class="subtitle">Settings & live preview</p>
       <div class="preview-box" id="previewBox">
@@ -147,20 +197,20 @@ function createUI() {
     else settings.size = sizeSelect.value;
     saveSettings(settings);
   });
-  widgetCheck.addEventListener("change", () => setWidgetMode(widgetCheck.checked));
+  widgetCheck.addEventListener("change", () => setWidgetMode(widgetCheck.checked, true));
   launchCheck.addEventListener("change", () => {
     settings.openSettingsOnLaunch = launchCheck.checked;
     saveSettings(settings);
   });
 
   select("#btnFull").addEventListener("click", () => {
-    setWidgetMode(false);
-    applySize(sizeSelect.value);
-    closeSettings();
+    closeSettings(() => {
+      setWidgetMode(false, true);
+      applySize(sizeSelect.value);
+    });
   });
   select("#btnWidget").addEventListener("click", () => {
-    setWidgetMode(true);
-    closeSettings();
+    closeSettings(() => setWidgetMode(true, true));
   });
   select("#btnClose").addEventListener("click", () => closeSettings());
   overlay.addEventListener("click", (e) => {
@@ -169,49 +219,128 @@ function createUI() {
 }
 
 function openSettings() {
-  document.body.classList.add("settings-open");
-  const overlay = select("#settingsOverlay");
-  if (overlay) overlay.classList.add("open");
+  if (isAnimatingLayout) return;
+  isAnimatingLayout = true;
 
+  const overlay = select("#settingsOverlay");
+  const card = select("#settingsCard");
   const box = select("#previewBox");
   const wrap = select(".gsapWrapper");
+
+  document.body.classList.add("settings-open");
+  if (overlay) {
+    gsap.fromTo(overlay, { autoAlpha: 0 }, { duration: 0.35, autoAlpha: 1, ease: "power2.out" });
+    overlay.classList.add("open");
+  }
+  if (card) {
+    gsap.fromTo(card,
+      { scale: 0.92, y: 24, autoAlpha: 0 },
+      { duration: 0.45, scale: 1, y: 0, autoAlpha: 1, ease: "power3.out" }
+    );
+  }
+
   if (box && wrap) {
-    const r = box.getBoundingClientRect();
-    wrap.style.position = "fixed";
-    wrap.style.width = r.width + "px";
-    wrap.style.height = r.height + "px";
-    wrap.style.left = r.left + "px";
-    wrap.style.top = r.top + "px";
-    wrap.style.zIndex = "210";
-    wrap.style.pointerEvents = "none";
-    gsap.set(wrap, { autoAlpha: 1 });
+    requestAnimationFrame(() => {
+      const from = wrap.getBoundingClientRect();
+      const to = box.getBoundingClientRect();
+
+      wrap.style.position = "fixed";
+      wrap.style.zIndex = "210";
+      wrap.style.pointerEvents = "none";
+      wrap.style.left = from.left + "px";
+      wrap.style.top = from.top + "px";
+      wrap.style.width = from.width + "px";
+      wrap.style.height = from.height + "px";
+
+      gsap.to(wrap, {
+        duration: 0.55,
+        ease: "power3.inOut",
+        left: to.left,
+        top: to.top,
+        width: to.width,
+        height: to.height,
+        onComplete: () => { isAnimatingLayout = false; }
+      });
+      gsap.set(wrap, { autoAlpha: 1 });
+    });
+  } else {
+    isAnimatingLayout = false;
   }
 }
 
-function closeSettings() {
-  document.body.classList.remove("settings-open");
-  const overlay = select("#settingsOverlay");
-  if (overlay) overlay.classList.remove("open");
+function closeSettings(after) {
+  if (isAnimatingLayout) return;
+  isAnimatingLayout = true;
 
+  const overlay = select("#settingsOverlay");
+  const card = select("#settingsCard");
   const wrap = select(".gsapWrapper");
+
+  if (card) {
+    gsap.to(card, { duration: 0.25, scale: 0.96, y: 12, autoAlpha: 0, ease: "power2.in" });
+  }
+  if (overlay) {
+    gsap.to(overlay, {
+      duration: 0.3,
+      autoAlpha: 0,
+      ease: "power2.in",
+      onComplete: () => {
+        overlay.classList.remove("open");
+        document.body.classList.remove("settings-open");
+      }
+    });
+  }
+
   if (wrap) {
+    let targetLeft, targetTop, targetW, targetH;
+
     if (settings.widgetMode) {
-      wrap.style.position = "fixed";
-      wrap.style.width = "auto";
-      wrap.style.height = "auto";
-      wrap.style.zIndex = "50";
-      wrap.style.pointerEvents = "";
-      if (settings.posX != null) wrap.style.left = settings.posX + "px";
-      if (settings.posY != null) wrap.style.top = settings.posY + "px";
+      targetLeft = settings.posX != null ? settings.posX : 40;
+      targetTop = settings.posY != null ? settings.posY : 40;
+      const approx = Math.min(window.innerWidth, window.innerHeight) * 0.22;
+      targetW = Math.min(approx, 160);
+      targetH = targetW;
     } else {
-      wrap.style.position = "";
-      wrap.style.width = "";
-      wrap.style.height = "";
-      wrap.style.left = "";
-      wrap.style.top = "";
-      wrap.style.zIndex = "";
-      wrap.style.pointerEvents = "";
+      const sizeMap = { small: 180, medium: 280, large: 420, full: 500 };
+      const s = sizeMap[settings.size] || 500;
+      targetW = Math.min(s, window.innerWidth * 0.85, window.innerHeight * 0.85);
+      targetH = targetW;
+      targetLeft = (window.innerWidth - targetW) / 2;
+      targetTop = (window.innerHeight - targetH) / 2;
     }
+
+    gsap.to(wrap, {
+      duration: 0.55,
+      ease: "power3.inOut",
+      left: targetLeft,
+      top: targetTop,
+      width: targetW,
+      height: targetH,
+      onComplete: () => {
+        if (settings.widgetMode) {
+          wrap.style.position = "fixed";
+          wrap.style.left = targetLeft + "px";
+          wrap.style.top = targetTop + "px";
+          wrap.style.width = "auto";
+          wrap.style.height = "auto";
+          wrap.style.zIndex = "50";
+          wrap.style.pointerEvents = "";
+        } else {
+          wrap.style.position = "";
+          wrap.style.left = "";
+          wrap.style.top = "";
+          wrap.style.width = "";
+          wrap.style.height = "";
+          wrap.style.zIndex = "";
+          wrap.style.pointerEvents = "";
+        }
+        isAnimatingLayout = false;
+        if (typeof after === "function") after();
+      }
+    });
+  } else {
+    isAnimatingLayout = false;
+    if (typeof after === "function") after();
   }
 }
 
@@ -225,8 +354,10 @@ function initDrag() {
   function onDown(e) {
     if (!document.body.classList.contains("widget-mode")) return;
     if (document.body.classList.contains("settings-open")) return;
+    if (isAnimatingLayout) return;
     dragging = true;
     wrap.classList.add("dragging");
+    gsap.killTweensOf(wrap);
     const pt = e.touches ? e.touches[0] : e;
     startX = pt.clientX;
     startY = pt.clientY;
@@ -251,6 +382,7 @@ function initDrag() {
     if (!dragging) return;
     dragging = false;
     wrap.classList.remove("dragging");
+    gsap.fromTo(wrap, { scale: 1.02 }, { duration: 0.2, scale: 1, ease: "power2.out" });
     settings.posX = parseInt(wrap.style.left, 10) || 0;
     settings.posY = parseInt(wrap.style.top, 10) || 0;
     saveSettings(settings);
@@ -268,61 +400,71 @@ window.onload = function () {
   createUI();
   initDrag();
 
-  if (settings.widgetMode) setWidgetMode(true);
+  if (settings.widgetMode) setWidgetMode(true, false);
   else applySize(settings.size || "full");
 
   requestAnimationFrame(() => {
     startAnimation();
+    const wrap = select(".gsapWrapper");
+    if (wrap) {
+      gsap.fromTo(wrap, { autoAlpha: 0, scale: 0.94 }, {
+        duration: 0.7,
+        autoAlpha: 1,
+        scale: 1,
+        ease: "power3.out",
+        delay: 0.05
+      });
+    }
     if (settings.openSettingsOnLaunch !== false) {
-      setTimeout(() => openSettings(), 400);
+      setTimeout(() => openSettings(), 550);
     }
   });
 };
 
 function startAnimation() {
   if (!sec || !min || !hr) {
-    console.warn("Spider Clock: clock hand elements not found. Run the Actions workflow to build full index.html.");
+    console.warn("Spider Clock: run Actions workflow for full SVG.");
     gsap.set([".gsapWrapper", ".vline"], { autoAlpha: 1 });
     return;
   }
 
   setTimeSec();
   setTimeMinHr();
-  gsap.set([".gsapWrapper", ".vline"], { autoAlpha: 1 });
+  gsap.set(".vline", { autoAlpha: 1 });
 
   gsap.to(".cw.t24", {
-    duration: 1, rotation: "-=15", transformOrigin: "50% 50%", ease: "bounce",
-    onComplete: function () { this.invalidate().delay(1).restart(true); }
+    duration: 1.2, rotation: "-=15", transformOrigin: "50% 50%", ease: "power1.inOut",
+    onComplete: function () { this.invalidate().delay(0.8).restart(true); }
   });
   gsap.to(".cw.t20", {
-    duration: 1, rotation: "-=18", transformOrigin: "50% 50%", ease: "bounce",
-    onComplete: function () { this.invalidate().delay(1).restart(true); }
+    duration: 1.2, rotation: "-=18", transformOrigin: "50% 50%", ease: "power1.inOut",
+    onComplete: function () { this.invalidate().delay(0.8).restart(true); }
   });
   gsap.to(".ccw.t12", {
-    duration: 1, rotation: "+=30", transformOrigin: "50% 50%", ease: "bounce",
-    onComplete: function () { this.invalidate().delay(1).restart(true); }
+    duration: 1.2, rotation: "+=30", transformOrigin: "50% 50%", ease: "power1.inOut",
+    onComplete: function () { this.invalidate().delay(0.8).restart(true); }
   });
 
   gsap.to(min, {
-    duration: 0.5, rotation: getMinRotation, transformOrigin: "50% 50%", ease: "none",
+    duration: 0.6, rotation: getMinRotation, transformOrigin: "50% 50%", ease: "power1.out",
     onComplete: function () {
       if (gsap.getProperty(min, "rotation") >= 360)
         gsap.set(min, { rotation: 0, transformOrigin: "50% 50%" });
-      this.invalidate().delay(5).restart(true);
+      this.invalidate().delay(4).restart(true);
     }
   });
 
   gsap.to(hr, {
-    duration: 0.5, rotation: getHrRotation, transformOrigin: "50% 50%", ease: "none",
+    duration: 0.6, rotation: getHrRotation, transformOrigin: "50% 50%", ease: "power1.out",
     onComplete: function () {
       if (gsap.getProperty(hr, "rotation") >= 360)
         gsap.set(hr, { rotation: 0, transformOrigin: "50% 50%" });
-      this.invalidate().delay(5).restart(true);
+      this.invalidate().delay(4).restart(true);
     }
   });
 
   gsap.to(sec, {
-    duration: 0.5, rotation: geSecRotation, transformOrigin: "50% 50%", ease: "bounce",
+    duration: 0.35, rotation: geSecRotation, transformOrigin: "50% 50%", ease: "power1.out",
     onComplete: function () {
       setTimeSec();
       if (gsap.getProperty(sec, "rotation") >= 360)
@@ -331,6 +473,7 @@ function startAnimation() {
     }
   });
 
+  // Spider face + hand morphs – structure unchanged
   if (hasMorph && face01 && face02) {
     let tg0 = gsap.timeline({
       repeat: -1, repeatDelay: 5, defaults: { duration: 0.5, ease: "power1.out" }
@@ -348,7 +491,7 @@ function startAnimation() {
 
   function createHandMorphTimeline(handEl, handSel, path1, path2, delaySec, ranges) {
     let tg = gsap.timeline({
-      repeat: -1, repeatDelay: 5, defaults: { duration: 1.5, ease: "bounce" }
+      repeat: -1, repeatDelay: 5, defaults: { duration: 1.5, ease: "power2.inOut" }
     }).delay(delaySec)
       .call(() => {
         let rotation = parseFloat(gsap.getProperty(handEl, "rotation").toFixed(1));
@@ -356,7 +499,7 @@ function startAnimation() {
           (rotation > ranges[0] && rotation < ranges[1]) ||
           (rotation > ranges[2] && rotation < ranges[3]);
         if (inRange) {
-          gsap.timeline({ defaults: { duration: 0.25, ease: "bounce.in" } })
+          gsap.timeline({ defaults: { duration: 0.3, ease: "power2.inOut" } })
             .to(handSel, { morphSVG: path2 })
             .to(handSel, { morphSVG: path1 });
         }
@@ -370,7 +513,13 @@ function startAnimation() {
   }
 
   function setTimeSec() {
-    gsap.set(sec, { rotation: geSecRotation, transformOrigin: "50% 50%" });
+    const rot = geSecRotation();
+    const cur = gsap.getProperty(sec, "rotation") || 0;
+    if (Math.abs(cur - rot) > 15) {
+      gsap.to(sec, { duration: 0.4, rotation: rot, transformOrigin: "50% 50%", ease: "power2.out" });
+    } else {
+      gsap.set(sec, { rotation: rot, transformOrigin: "50% 50%" });
+    }
   }
   function setTimeMinHr() {
     gsap.set(min, { rotation: getMinRotation, transformOrigin: "50% 50%" });
@@ -382,11 +531,13 @@ function startAnimation() {
     let rotation = seconds * 6;
     let scaleXSec = gsap.getProperty(sec, "scaleX") || 1;
     let difference = Math.abs((gsap.getProperty(sec, "rotation") || 0) - rotation);
-    if (difference >= 12) gsap.set(sec, { rotation: rotation, transformOrigin: "50% 50%" });
+    if (difference >= 12) {
+      gsap.to(sec, { duration: 0.35, rotation: rotation, transformOrigin: "50% 50%", ease: "power2.out" });
+    }
     if ((rotation >= 180 && rotation < 360) && scaleXSec == 1)
-      gsap.to(sec, { scaleX: -1, duration: 0.25 });
+      gsap.to(sec, { scaleX: -1, duration: 0.3, ease: "power1.inOut" });
     else if ((rotation < 180 || rotation >= 360) && scaleXSec == -1)
-      gsap.to(sec, { scaleX: 1, duration: 0.25 });
+      gsap.to(sec, { scaleX: 1, duration: 0.3, ease: "power1.inOut" });
     return rotation;
   }
 
@@ -395,11 +546,12 @@ function startAnimation() {
     let rotation = newDateTime.getMinutes() * 6 + newDateTime.getSeconds() * 6 / 59;
     let scaleXMin = gsap.getProperty(min, "scaleX") || 1;
     let difference = Math.abs((gsap.getProperty(min, "rotation") || 0) - rotation);
-    if (difference >= 5) gsap.set(min, { rotation: rotation, transformOrigin: "50% 50%" });
+    if (difference >= 5)
+      gsap.to(min, { duration: 0.4, rotation: rotation, transformOrigin: "50% 50%", ease: "power2.out" });
     if ((rotation >= 180 && rotation < 360) && scaleXMin == 1)
-      gsap.to(min, { scaleX: -1, duration: 0.25 });
+      gsap.to(min, { scaleX: -1, duration: 0.3, ease: "power1.inOut" });
     else if ((rotation < 180 || rotation >= 360) && scaleXMin == -1)
-      gsap.to(min, { scaleX: 1, duration: 0.25 });
+      gsap.to(min, { scaleX: 1, duration: 0.3, ease: "power1.inOut" });
     return rotation;
   }
 
@@ -408,11 +560,12 @@ function startAnimation() {
     let rotation = (newDateTime.getHours() % 12) * 30 + newDateTime.getMinutes() * 0.5;
     let scaleHr = gsap.getProperty(hr, "scaleX") || 1;
     let difference = Math.abs((gsap.getProperty(hr, "rotation") || 0) - rotation);
-    if (difference >= 5) gsap.set(hr, { rotation: rotation, transformOrigin: "50% 50%" });
+    if (difference >= 5)
+      gsap.to(hr, { duration: 0.4, rotation: rotation, transformOrigin: "50% 50%", ease: "power2.out" });
     if ((rotation >= 180 && rotation < 360) && scaleHr == 1)
-      gsap.to(hr, { scaleX: -1, duration: 0.25 });
+      gsap.to(hr, { scaleX: -1, duration: 0.3, ease: "power1.inOut" });
     else if ((rotation < 180 || rotation >= 360) && scaleHr == -1)
-      gsap.to(hr, { scaleX: 1, duration: 0.25 });
+      gsap.to(hr, { scaleX: 1, duration: 0.3, ease: "power1.inOut" });
     return rotation;
   }
 }
