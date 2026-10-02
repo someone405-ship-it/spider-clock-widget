@@ -44,15 +44,15 @@
       let html = null;
       for (const url of sources) {
         try {
-          const res = await fetch(url, { cache: "force-cache" });
+          const res = await fetch(url);
           if (!res.ok) continue;
           html = await res.text();
           if (html && html.indexOf("face01") !== -1) break;
           html = null;
-        } catch (e) { /* try next */ }
+        } catch (e) {}
       }
       if (!html) {
-        watch.innerHTML = '<p id="clock-loading">Could not load SVG. Check your internet connection and refresh.</p>';
+        watch.innerHTML = '<p id="clock-loading">Could not load SVG. Check internet and refresh.</p>';
         return;
       }
       html = html.replace(/flood-color="#a0a0a0"/g, 'flood-color="#a34a01"');
@@ -69,8 +69,9 @@
       const s = document.createElement("script");
       s.src = "./script.js";
       s.onload = function () {
-        if (document.readyState === "complete") {
-          window.dispatchEvent(new Event("load"));
+        // script.js assigns window.onload — call it now that SVG is ready
+        if (typeof window.onload === "function") {
+          try { window.onload(); } catch (err) { console.error(err); }
         }
       };
       document.body.appendChild(s);
