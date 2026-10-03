@@ -51,13 +51,35 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "17"
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Accept Android licenses
+        run: |
+          mkdir -p "$ANDROID_SDK_ROOT/licenses"
+          echo -e "24333f8a63b6825ea9c5514fde33152b49f652d2\n" > "$ANDROID_SDK_ROOT/licenses/android-sdk-license"
+          echo -e "84831b9409646a918e30573bab4c9c91346d8abd\n" > "$ANDROID_SDK_ROOT/licenses/android-sdk-preview-license"
+          echo -e "d56f5187479451eabf01fb78af6dfcb131a6481e\n" > "$ANDROID_SDK_ROOT/licenses/android-sdk-license"
+          yes 2>/dev/null | sdkmanager --licenses || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
+
       - name: Install npm deps
         run: npm install
+
+      - name: Prepare web assets for Capacitor
+        run: |
+          mkdir -p www
+          cp index.html style.css script.js manifest.json sw.js www/
+          # Capacitor webDir must not be repo root (avoids copying node_modules)
+          python3 -c "
+          import json
+          c=json.load(open('capacitor.config.json'))
+          c['webDir']='www'
+          json.dump(c, open('capacitor.config.json','w'), indent=2)
+          print(c)
+          "
 
       - name: Add Capacitor Android platform
         run: |
