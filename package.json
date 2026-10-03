@@ -1,7 +1,7 @@
 {
   "name": "spider-clock-widget",
-  "version": "1.1.0",
-  "description": "Spider Clock — real persistent desktop & mobile widget",
+  "version": "1.2.0",
+  "description": "Spider Clock — original spider + gears, PC and mobile widget",
   "main": "electron-main.js",
   "author": "someone405-ship-it",
   "license": "MIT",
@@ -19,6 +19,9 @@
       "script.js",
       "manifest.json",
       "sw.js",
+      "gear-original.js",
+      "gsap.min.js",
+      "mobile-bridge.js",
       "electron-main.js",
       "electron-preload.js"
     ],
