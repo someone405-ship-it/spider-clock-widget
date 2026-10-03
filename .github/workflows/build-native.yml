@@ -60,12 +60,16 @@ jobs:
 
       - run: npm install
 
-      - name: Prepare www for Capacitor
+      - name: Prepare www for Capacitor (full clock + mobile bridge)
         run: |
           mkdir -p www
-          cp index.html style.css script.js manifest.json sw.js www/
+          cp index.html style.css script.js manifest.json sw.js mobile-bridge.js www/
+          # Ensure mobile-bridge loads after script.js
+          if ! grep -q mobile-bridge.js www/index.html; then
+            sed -i 's#</body>#<script src="./mobile-bridge.js"></script>\n</body>#' www/index.html
+          fi
 
-      - name: Capacitor Android + home screen widget
+      - name: Capacitor Android + full floating clock widget
         run: |
           npx cap add android
           npx cap sync android
