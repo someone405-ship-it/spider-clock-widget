@@ -1,39 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:padding="8dp"
-    android:background="@drawable/widget_background">
+    android:padding="0dp">
 
-    <!-- Clock face preview (vector gears) -->
+    <!-- Live drawn spider clock — always visible on home screen -->
     <ImageView
         android:id="@+id/widget_face"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_margin="4dp"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
         android:scaleType="fitCenter"
-        android:src="@drawable/widget_clock_face"
+        android:adjustViewBounds="true"
         android:contentDescription="@string/widget_name" />
-
-    <TextView
-        android:id="@+id/widget_time"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="00:00"
-        android:textColor="#FFFFFF"
-        android:textSize="22sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/widget_hint"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Tap · full spider"
-        android:textColor="#FFE0B2"
-        android:textSize="10sp"
-        android:layout_marginTop="2dp" />
-</LinearLayout>
+</FrameLayout>

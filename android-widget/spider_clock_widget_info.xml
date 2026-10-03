@@ -6,6 +6,7 @@
     android:targetCellHeight="2"
     android:updatePeriodMillis="60000"
     android:initialLayout="@layout/spider_clock_widget"
+    android:previewImage="@drawable/widget_clock_face"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
     android:description="@string/widget_description" />

@@ -8,8 +8,8 @@ mkdir -p "$JAVA_SRC/$PKG_PATH"
 
 cp "$ROOT/android-widget/FloatingClockActivity.java" "$JAVA_SRC/$PKG_PATH/"
 cp "$ROOT/android-widget/SpiderClockWidget.java" "$JAVA_SRC/$PKG_PATH/"
-# Remove Kotlin sources if present (project may not apply kotlin plugin)
-rm -f "$JAVA_SRC/$PKG_PATH/FloatingClockActivity.kt" "$JAVA_SRC/$PKG_PATH/SpiderClockWidget.kt"
+cp "$ROOT/android-widget/ClockBitmapRenderer.java" "$JAVA_SRC/$PKG_PATH/"
+rm -f "$JAVA_SRC/$PKG_PATH/"*.kt
 
 RES="$AND/app/src/main/res"
 mkdir -p "$RES/xml" "$RES/layout" "$RES/drawable" "$RES/values"
@@ -20,14 +20,14 @@ cp "$ROOT/android-widget/widget_clock_face.xml" "$RES/drawable/"
 
 if [ -f "$RES/values/strings.xml" ]; then
   if ! grep -q widget_description "$RES/values/strings.xml"; then
-    sed -i 's#</resources>#    <string name="widget_description">Spider Clock with gears</string>\n    <string name="widget_name">Spider Clock</string>\n</resources>#' "$RES/values/strings.xml"
+    sed -i 's#</resources>#    <string name="widget_description">Spider Clock — live gears on home screen</string>\n    <string name="widget_name">Spider Clock</string>\n</resources>#' "$RES/values/strings.xml"
   fi
 else
   cat > "$RES/values/strings.xml" << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Spider Clock</string>
-    <string name="widget_description">Spider Clock with gears</string>
+    <string name="widget_description">Spider Clock — live gears on home screen</string>
     <string name="widget_name">Spider Clock</string>
 </resources>
 EOF
@@ -38,6 +38,10 @@ from pathlib import Path
 import re
 p = Path("android/app/src/main/AndroidManifest.xml")
 t = p.read_text()
+if "android.permission.INTERNET" not in t:
+    t = t.replace("<application", '    <uses-permission android:name="android.permission.INTERNET" />\n    <application', 1)
+if "SCHEDULE_EXACT_ALARM" not in t:
+    t = t.replace("<application", '    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />\n    <application', 1)
 if "SYSTEM_ALERT_WINDOW" not in t:
     t = t.replace("<application", '    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />\n    <application', 1)
 if "supportsPictureInPicture" not in t:
@@ -52,6 +56,7 @@ extras = '''
             android:label="@string/widget_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.spiderclock.widget.ACTION_TICK" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -79,6 +84,12 @@ elif "FloatingClockActivity" not in t:
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:resizeableActivity="true" />
     </application>''')
+if "ACTION_TICK" not in t and "SpiderClockWidget" in t:
+    t = t.replace(
+        '<action android:name="android.appwidget.action.APPWIDGET_UPDATE" />',
+        '<action android:name="android.appwidget.action.APPWIDGET_UPDATE" />\n                <action android:name="com.spiderclock.widget.ACTION_TICK" />',
+        1,
+    )
 p.write_text(t)
 print("Manifest patched")
 PY
@@ -87,13 +98,11 @@ python3 << 'PY'
 from pathlib import Path
 roots = list(Path("android/app/src/main/java").rglob("MainActivity.java"))
 if not roots:
-    print("MainActivity.java not found")
-    raise SystemExit(0)
+    print("MainActivity.java not found"); raise SystemExit(0)
 main = roots[0]
 text = main.read_text()
 if "SpiderNative" in text:
-    print("MainActivity already patched")
-    raise SystemExit(0)
+    print("MainActivity already patched"); raise SystemExit(0)
 insert = '''
     @Override
     public void onStart() {
@@ -117,9 +126,8 @@ insert = '''
     }
 '''
 idx = text.rfind("}")
-text = text[:idx] + insert + "\n}\n"
-main.write_text(text)
+main.write_text(text[:idx] + insert + "\n}\n")
 print("MainActivity patched")
 PY
 
-echo "Android Java widget + floating clock injected."
+echo "Live clock home widget injected."
