@@ -11,26 +11,22 @@ jobs:
     name: Windows EXE
     runs-on: windows-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Install dependencies
-        run: npm install
+      - run: npm install
 
       - name: Build portable EXE
         run: npx electron-builder --win portable --x64
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload EXE artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: SpiderClock-Windows-EXE
+          name: windows-exe
           path: dist-native/*.exe
           if-no-files-found: error
           retention-days: 30
@@ -39,49 +35,45 @@ jobs:
     name: Android APK
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Accept Android licenses
+      - name: Install Android SDK (no deprecated tools package)
         run: |
-          mkdir -p "$ANDROID_SDK_ROOT/licenses"
-          echo -e "24333f8a63b6825ea9c5514fde33152b49f652d2\n" > "$ANDROID_SDK_ROOT/licenses/android-sdk-license"
-          echo -e "84831b9409646a918e30573bab4c9c91346d8abd\n" > "$ANDROID_SDK_ROOT/licenses/android-sdk-preview-license"
-          echo -e "d56f5187479451eabf01fb78af6dfcb131a6481e\n" > "$ANDROID_SDK_ROOT/licenses/android-sdk-license"
-          yes 2>/dev/null | sdkmanager --licenses || true
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
+          set -e
+          SDK_ROOT="$HOME/android-sdk"
+          mkdir -p "$SDK_ROOT/cmdline-tools"
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o /tmp/cmdtools.zip
+          unzip -q /tmp/cmdtools.zip -d "$SDK_ROOT/cmdline-tools"
+          mv "$SDK_ROOT/cmdline-tools/cmdline-tools" "$SDK_ROOT/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+
+      - name: Accept licenses and install packages
+        run: |
+          set -e
+          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses >/tmp/licenses.txt || true
+          sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
       - name: Install npm deps
         run: npm install
 
-      - name: Prepare web assets for Capacitor
+      - name: Prepare www for Capacitor
         run: |
           mkdir -p www
           cp index.html style.css script.js manifest.json sw.js www/
-          # Capacitor webDir must not be repo root (avoids copying node_modules)
-          python3 -c "
-          import json
-          c=json.load(open('capacitor.config.json'))
-          c['webDir']='www'
-          json.dump(c, open('capacitor.config.json','w'), indent=2)
-          print(c)
-          "
 
-      - name: Add Capacitor Android platform
+      - name: Capacitor Android
         run: |
           npx cap add android
           npx cap sync android
@@ -92,17 +84,57 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
-      - name: Copy APK
+      - name: Stage APK
         run: |
           mkdir -p dist-native
-          find android -name "*.apk" -type f -print
           cp android/app/build/outputs/apk/debug/app-debug.apk dist-native/SpiderClock-Android.apk
           ls -la dist-native/
 
-      - name: Upload APK artifact
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: dist-native/SpiderClock-Android.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  combine:
+    name: One zip with EXE + APK
+    needs: [build-windows-exe, build-android-apk]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Windows EXE
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-exe
+          path: bundle
+
+      - name: Download Android APK
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: bundle
+
+      - name: Rename files clearly
+        run: |
+          cd bundle
+          ls -la
+          # Normalize names
+          for f in *.exe; do
+            [ -f "$f" ] && mv "$f" SpiderClock-Windows.exe || true
+          done
+          for f in *.apk; do
+            [ -f "$f" ] && mv "$f" SpiderClock-Android.apk || true
+          done
+          ls -la
+          test -f SpiderClock-Windows.exe
+          test -f SpiderClock-Android.apk
+          zip -r ../SpiderClock-Windows-and-Android.zip SpiderClock-Windows.exe SpiderClock-Android.apk
+          ls -la ../SpiderClock-Windows-and-Android.zip
+
+      - name: Upload combined artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SpiderClock-Android-APK
-          path: dist-native/SpiderClock-Android.apk
+          name: SpiderClock-Windows-and-Android
+          path: SpiderClock-Windows-and-Android.zip
           if-no-files-found: error
           retention-days: 30
