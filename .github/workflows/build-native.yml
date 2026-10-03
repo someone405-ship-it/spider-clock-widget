@@ -16,9 +16,16 @@ jobs:
         with:
           node-version: "20"
       - run: npm install
-      - name: Vendor GSAP into project for offline identical clock
+      - name: Vendor GSAP + inject original gear ticks into index
+        shell: bash
         run: |
           curl -fsSL "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" -o gsap.min.js
+          if ! grep -q gear-original.js index.html; then
+            sed -i 's#</body>#<script src="./gear-original.js"></script>\n</body>#' index.html || sed -i '' 's#</body>#<script src="./gear-original.js"></script>\n</body>#' index.html
+          fi
+          # Prefer local GSAP in packaged app
+          sed -i 's#https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js#./gsap.min.js#g' index.html || true
+          sed -i '/MorphSVGPlugin/d' index.html || true
       - name: Build portable EXE
         run: npx electron-builder --win portable --x64
         env:
@@ -63,29 +70,28 @@ jobs:
 
       - run: npm install
 
-      - name: Prepare www — same clock as app (local GSAP + full SVG)
+      - name: Prepare www — original SVG + original gear ticks
         run: |
           set -e
           mkdir -p www
-          cp index.html style.css script.js manifest.json sw.js mobile-bridge.js www/
-          # Local GSAP so file:// and offline match the app animation
+          cp index.html style.css script.js manifest.json sw.js mobile-bridge.js gear-original.js www/
           curl -fsSL "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" -o www/gsap.min.js
-          # Point scripts to local GSAP; drop MorphSVG CDN (optional/paid, script has fallback)
           sed -i 's#https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js#./gsap.min.js#g' www/index.html
           sed -i '/MorphSVGPlugin/d' www/index.html
           if ! grep -q mobile-bridge.js www/index.html; then
             sed -i 's#</body>#<script src="./mobile-bridge.js"></script>\n</body>#' www/index.html
           fi
-          # INTERNET still useful; ensure INTERNET permission via inject
+          if ! grep -q gear-original.js www/index.html; then
+            sed -i 's#</body>#<script src="./gear-original.js"></script>\n</body>#' www/index.html
+          fi
           ls -la www/
 
-      - name: Capacitor Android + floating identical clock
+      - name: Capacitor Android + live original clock widget
         run: |
           npx cap add android
           npx cap sync android
           chmod +x android-widget/inject-widget.sh
           bash android-widget/inject-widget.sh
-          # Ensure INTERNET permission for any remaining network needs
           if ! grep -q android.permission.INTERNET android/app/src/main/AndroidManifest.xml; then
             sed -i 's#<application#    <uses-permission android:name="android.permission.INTERNET" />\n    <application#' android/app/src/main/AndroidManifest.xml
           fi
