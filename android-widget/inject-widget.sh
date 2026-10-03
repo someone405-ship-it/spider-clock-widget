@@ -8,7 +8,11 @@ mkdir -p "$JAVA_SRC/$PKG_PATH"
 
 cp "$ROOT/android-widget/FloatingClockActivity.java" "$JAVA_SRC/$PKG_PATH/"
 cp "$ROOT/android-widget/SpiderClockWidget.java" "$JAVA_SRC/$PKG_PATH/"
-cp "$ROOT/android-widget/ClockBitmapRenderer.java" "$JAVA_SRC/$PKG_PATH/"
+cp "$ROOT/android-widget/ClockCaptureService.java" "$JAVA_SRC/$PKG_PATH/"
+# optional fallback renderer still available but not used for primary display
+if [ -f "$ROOT/android-widget/ClockBitmapRenderer.java" ]; then
+  cp "$ROOT/android-widget/ClockBitmapRenderer.java" "$JAVA_SRC/$PKG_PATH/"
+fi
 rm -f "$JAVA_SRC/$PKG_PATH/"*.kt
 
 RES="$AND/app/src/main/res"
@@ -20,14 +24,14 @@ cp "$ROOT/android-widget/widget_clock_face.xml" "$RES/drawable/"
 
 if [ -f "$RES/values/strings.xml" ]; then
   if ! grep -q widget_description "$RES/values/strings.xml"; then
-    sed -i 's#</resources>#    <string name="widget_description">Spider Clock — live gears on home screen</string>\n    <string name="widget_name">Spider Clock</string>\n</resources>#' "$RES/values/strings.xml"
+    sed -i 's#</resources>#    <string name="widget_description">Original Spider Clock on your home screen</string>\n    <string name="widget_name">Spider Clock</string>\n</resources>#' "$RES/values/strings.xml"
   fi
 else
   cat > "$RES/values/strings.xml" << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Spider Clock</string>
-    <string name="widget_description">Spider Clock — live gears on home screen</string>
+    <string name="widget_description">Original Spider Clock on your home screen</string>
     <string name="widget_name">Spider Clock</string>
 </resources>
 EOF
@@ -38,25 +42,46 @@ from pathlib import Path
 import re
 p = Path("android/app/src/main/AndroidManifest.xml")
 t = p.read_text()
-if "android.permission.INTERNET" not in t:
-    t = t.replace("<application", '    <uses-permission android:name="android.permission.INTERNET" />\n    <application', 1)
-if "SCHEDULE_EXACT_ALARM" not in t:
-    t = t.replace("<application", '    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />\n    <application', 1)
-if "SYSTEM_ALERT_WINDOW" not in t:
-    t = t.replace("<application", '    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />\n    <application', 1)
+
+def ensure_perm(name):
+    global t
+    if name not in t:
+        t = t.replace("<application", f'    <uses-permission android:name="{name}" />\n    <application', 1)
+
+ensure_perm("android.permission.INTERNET")
+ensure_perm("android.permission.FOREGROUND_SERVICE")
+ensure_perm("android.permission.FOREGROUND_SERVICE_SPECIAL_USE")
+ensure_perm("android.permission.POST_NOTIFICATIONS")
+ensure_perm("android.permission.WAKE_LOCK")
+
 if "supportsPictureInPicture" not in t:
     t = re.sub(
         r'(<activity[^>]*android:name="\.MainActivity"[^>]*)',
         r'\1\n            android:supportsPictureInPicture="true"\n            android:resizeableActivity="true"',
         t, count=1)
-extras = '''
+
+# Service for live original clock frames
+if "ClockCaptureService" not in t:
+    svc = '''
+        <service
+            android:name=".ClockCaptureService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="home screen widget live clock capture" />
+        </service>
+'''
+    t = t.replace("</application>", svc + "\n    </application>")
+
+if "SpiderClockWidget" not in t:
+    extras = '''
         <receiver
             android:name=".SpiderClockWidget"
             android:exported="true"
             android:label="@string/widget_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.spiderclock.widget.ACTION_TICK" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -71,7 +96,6 @@ extras = '''
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:resizeableActivity="true" />
 '''
-if "SpiderClockWidget" not in t:
     t = t.replace("</application>", extras + "\n    </application>")
 elif "FloatingClockActivity" not in t:
     t = t.replace("</application>", '''
@@ -84,12 +108,7 @@ elif "FloatingClockActivity" not in t:
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:resizeableActivity="true" />
     </application>''')
-if "ACTION_TICK" not in t and "SpiderClockWidget" in t:
-    t = t.replace(
-        '<action android:name="android.appwidget.action.APPWIDGET_UPDATE" />',
-        '<action android:name="android.appwidget.action.APPWIDGET_UPDATE" />\n                <action android:name="com.spiderclock.widget.ACTION_TICK" />',
-        1,
-    )
+
 p.write_text(t)
 print("Manifest patched")
 PY
@@ -130,4 +149,4 @@ main.write_text(text[:idx] + insert + "\n}\n")
 print("MainActivity patched")
 PY
 
-echo "Live clock home widget injected."
+echo "Original-spider live capture widget injected."

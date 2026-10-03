@@ -3,9 +3,9 @@
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="0dp">
+    android:background="#a34a01">
 
-    <!-- Live drawn spider clock — always visible on home screen -->
+    <!-- Filled with live captures of the ORIGINAL app spider clock -->
     <ImageView
         android:id="@+id/widget_face"
         android:layout_width="match_parent"
