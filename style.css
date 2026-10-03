@@ -21,6 +21,81 @@ body {
   font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
+/* ===== PC Electron: drag anywhere, resize from edges ===== */
+html.desktop-electron,
+body.desktop-electron {
+  -webkit-app-region: drag;
+  cursor: grab;
+}
+
+body.desktop-electron:active {
+  cursor: grabbing;
+}
+
+/* Buttons / interactive UI must not start a window drag */
+body.desktop-electron button,
+body.desktop-electron a,
+body.desktop-electron input,
+body.desktop-electron select,
+body.desktop-electron textarea,
+body.desktop-electron .settings-overlay,
+body.desktop-electron .settings-btn,
+body.desktop-electron .edit-mode-btn,
+body.desktop-electron .resize-handle,
+body.desktop-electron #desktop-resize-hint {
+  -webkit-app-region: no-drag;
+}
+
+#desktop-drag-bar {
+  display: none;
+}
+
+body.desktop-electron #desktop-drag-bar {
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  z-index: 9998;
+  -webkit-app-region: drag;
+  background: linear-gradient(180deg, rgba(0,0,0,0.25), transparent);
+  cursor: grab;
+}
+
+body.desktop-electron #desktop-drag-bar::after {
+  content: "⋮⋮ drag";
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+#desktop-resize-hint {
+  display: none;
+}
+
+body.desktop-electron #desktop-resize-hint {
+  display: flex;
+  position: fixed;
+  right: 4px;
+  bottom: 4px;
+  width: 22px;
+  height: 22px;
+  align-items: flex-end;
+  justify-content: flex-end;
+  z-index: 9999;
+  -webkit-app-region: no-drag;
+  font-size: 14px;
+  opacity: 0.65;
+  pointer-events: none;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
 .vline {
   position: fixed;
   top: 0;
@@ -52,6 +127,11 @@ body {
   max-width: 100%;
   max-height: 100%;
   transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+body.desktop-electron #wBody {
+  width: min(92vw, 92vh, 600px);
+  transition: none;
 }
 
 body.size-small #wBody { width: min(28vw, 28vh, 180px); }
@@ -153,6 +233,7 @@ body.edit-mode .drag-bar { display: block; }
   justify-content: center;
   box-shadow: 0 4px 16px rgba(0,0,0,0.3);
   transition: transform 0.15s, background 0.15s;
+  -webkit-app-region: no-drag;
 }
 
 .settings-btn:hover { background: rgba(0,0,0,0.55); transform: scale(1.08); }
@@ -179,6 +260,7 @@ body.edit-mode .settings-btn {
   padding: 16px;
   opacity: 0;
   pointer-events: none;
+  -webkit-app-region: no-drag;
 }
 
 .settings-overlay.open { pointer-events: auto; }
@@ -412,6 +494,7 @@ body.widget-mode .digital-time {
   justify-content: center;
   box-shadow: 0 4px 16px rgba(0,0,0,0.3);
   transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
+  -webkit-app-region: no-drag;
 }
 
 .edit-mode-btn:hover { background: rgba(0,0,0,0.55); transform: scale(1.08); }

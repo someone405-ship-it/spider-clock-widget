@@ -5,17 +5,13 @@ const {
   Menu,
   nativeImage,
   shell,
-  ipcMain,
   screen
 } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
-// Single instance — second launch focuses existing widget
 const gotLock = app.requestSingleInstanceLock();
-if (!gotLock) {
-  app.quit();
-}
+if (!gotLock) app.quit();
 
 const STORE = path.join(app.getPath("userData"), "widget-settings.json");
 
@@ -38,16 +34,12 @@ let tray = null;
 let isQuitting = false;
 
 function createTrayIcon() {
-  // Simple orange circle as tray icon (no external file needed)
-  const size = 16;
-  const img = nativeImage.createEmpty();
   try {
-    // 1x1 PNG orange pixel scaled — Electron accepts data URL via createFromDataURL on newer versions
     const png = Buffer.from(
       "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAHklEQVQ4T2NkYGD4z0ABYBzVMKoBVAOGahyNGjA0DQAACG0BAe2b8JkAAAAASUVORK5CYII=",
       "base64"
     );
-    return nativeImage.createFromBuffer(png).resize({ width: size, height: size });
+    return nativeImage.createFromBuffer(png).resize({ width: 16, height: 16 });
   } catch {
     return nativeImage.createEmpty();
   }
@@ -55,38 +47,66 @@ function createTrayIcon() {
 
 function applyWidgetMode(win, enabled) {
   if (!win || win.isDestroyed()) return;
-  win.setAlwaysOnTop(!!enabled, "floating");
+  win.setAlwaysOnTop(!!enabled, "screen-saver");
   win.setSkipTaskbar(!!enabled);
   win.setVisibleOnAllWorkspaces(!!enabled, { visibleOnFullScreen: true });
-  if (enabled) {
-    win.setMinimizable(false);
-  } else {
-    win.setMinimizable(true);
-  }
+  // Always keep resizable & movable
+  win.setResizable(true);
+  win.setMovable(true);
+  win.setMinimumSize(140, 160);
   saveStore({ widgetMode: !!enabled });
+}
+
+function injectDesktopChrome() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.executeJavaScript(`
+    (function () {
+      document.documentElement.classList.add('desktop-electron');
+      document.body.classList.add('desktop-electron');
+      if (!document.getElementById('desktop-drag-bar')) {
+        var bar = document.createElement('div');
+        bar.id = 'desktop-drag-bar';
+        bar.title = 'Drag to move · resize from edges/corners';
+        document.body.appendChild(bar);
+      }
+      if (!document.getElementById('desktop-resize-hint')) {
+        var h = document.createElement('div');
+        h.id = 'desktop-resize-hint';
+        h.textContent = '↘';
+        h.title = 'Drag corner or edges to resize';
+        document.body.appendChild(h);
+      }
+    })();
+  `).catch(() => {});
 }
 
 function createWindow() {
   const store = loadStore();
-  const display = screen.getPrimaryDisplay().workAreaSize;
-  const width = store.width || 280;
-  const height = store.height || 320;
-  const x = store.x != null ? store.x : Math.max(20, display.width - width - 40);
-  const y = store.y != null ? store.y : 40;
+  const work = screen.getPrimaryDisplay().workArea;
+  const width = Math.max(160, store.width || 280);
+  const height = Math.max(180, store.height || 320);
+  let x = store.x != null ? store.x : Math.max(work.x + 20, work.x + work.width - width - 40);
+  let y = store.y != null ? store.y : work.y + 40;
 
   mainWindow = new BrowserWindow({
     width,
     height,
     x,
     y,
-    minWidth: 160,
-    minHeight: 180,
+    minWidth: 140,
+    minHeight: 160,
+    maxWidth: 900,
+    maxHeight: 900,
     backgroundColor: "#a34a01",
     title: "Spider Clock Widget",
-    frame: true,
-    autoHideMenuBar: true,
+    // Frameless so the whole surface is a widget; still resizable on Windows
+    frame: false,
     transparent: false,
     resizable: true,
+    movable: true,
+    maximizable: false,
+    fullscreenable: false,
+    thickFrame: true,
     hasShadow: true,
     show: false,
     webPreferences: {
@@ -97,12 +117,22 @@ function createWindow() {
     }
   });
 
+  // Explicitly enable resize/move (some hosts default oddly with frame:false)
+  mainWindow.setResizable(true);
+  mainWindow.setMovable(true);
+  mainWindow.setMinimumSize(140, 160);
+
   mainWindow.loadFile(path.join(__dirname, "index.html"));
 
   mainWindow.once("ready-to-show", () => {
     mainWindow.show();
-    const widgetOn = store.widgetMode !== false; // default ON for desktop widget feel
+    const widgetOn = store.widgetMode !== false;
     applyWidgetMode(mainWindow, widgetOn);
+    injectDesktopChrome();
+  });
+
+  mainWindow.webContents.on("did-finish-load", () => {
+    injectDesktopChrome();
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -110,7 +140,6 @@ function createWindow() {
     return { action: "deny" };
   });
 
-  // Remember position/size
   const persistBounds = () => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     const b = mainWindow.getBounds();
@@ -118,8 +147,10 @@ function createWindow() {
   };
   mainWindow.on("moved", persistBounds);
   mainWindow.on("resized", persistBounds);
+  mainWindow.on("will-resize", () => {
+    // ensure resize is never blocked
+  });
 
-  // Close → hide to tray (does NOT quit — stays until you Exit from tray)
   mainWindow.on("close", (e) => {
     if (!isQuitting) {
       e.preventDefault();
@@ -154,7 +185,7 @@ function buildTrayMenu() {
     },
     { type: "separator" },
     {
-      label: "Desktop widget mode (always on top)",
+      label: "Always on top (widget mode)",
       type: "checkbox",
       checked: widgetOn,
       click: (item) => {
@@ -177,7 +208,7 @@ function buildTrayMenu() {
     },
     { type: "separator" },
     {
-      label: "Exit (remove from PC until you open again)",
+      label: "Exit",
       click: () => {
         isQuitting = true;
         app.quit();
@@ -188,7 +219,7 @@ function buildTrayMenu() {
 
 function createTray() {
   tray = new Tray(createTrayIcon());
-  tray.setToolTip("Spider Clock Widget");
+  tray.setToolTip("Spider Clock — drag to move, edges to resize");
   tray.setContextMenu(buildTrayMenu());
   tray.on("double-click", () => {
     if (!mainWindow) createWindow();
@@ -200,7 +231,6 @@ function createTray() {
 }
 
 app.whenReady().then(() => {
-  // Default: start with Windows so it "spawns" and stays
   const store = loadStore();
   if (store.openAtLogin !== false) {
     app.setLoginItemSettings({
@@ -221,15 +251,10 @@ app.on("second-instance", () => {
   } else createWindow();
 });
 
-// Do not quit when window closed — tray keeps process alive
-app.on("window-all-closed", (e) => {
-  // keep running in tray on Windows/Linux
-});
-
+app.on("window-all-closed", () => {});
 app.on("before-quit", () => {
   isQuitting = true;
 });
-
 app.on("activate", () => {
   if (!mainWindow) createWindow();
   else mainWindow.show();
