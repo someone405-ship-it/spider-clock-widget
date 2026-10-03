@@ -47,8 +47,6 @@ jobs:
 
           html = re.sub(r"<head>.*?</head>", head, html, flags=re.DOTALL)
           html = html.replace('flood-color="#a0a0a0"', 'flood-color="#a34a01"')
-
-          # strip old scripts
           html = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE)
 
           scripts = """
@@ -80,7 +78,22 @@ jobs:
           print("Has watchSVG:", "watchSVG" in html)
           EOF
 
-      - name: Commit and push
+      - name: Pack download zip
+        run: |
+          mkdir -p dist
+          cp index.html style.css script.js manifest.json sw.js dist/
+          cd dist && zip -r ../spider-clock-widget.zip .
+          ls -la ../spider-clock-widget.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: spider-clock-widget
+          path: spider-clock-widget.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit and push index.html
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
