@@ -1,0 +1,11 @@
+{
+  "appId": "com.spiderclock.widget",
+  "appName": "Spider Clock",
+  "webDir": ".",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

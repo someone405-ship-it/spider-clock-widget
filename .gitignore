@@ -1,7 +1,8 @@
-.DS_Store
-Thumbs.db
 node_modules/
-*.log
-.env
+dist/
+dist-native/
+android/
 .idea/
-.vscode/
+*.log
+.DS_Store
+package-lock.json
