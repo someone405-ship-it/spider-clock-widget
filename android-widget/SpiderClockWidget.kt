@@ -31,23 +31,16 @@ class SpiderClockWidget : AppWidgetProvider() {
             val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
             views.setTextViewText(R.id.widget_time, time)
 
-            // Tap → open full animated app (gears + spider)
-            val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
-            if (launch != null) {
-                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                val pi = PendingIntent.getActivity(
-                    context,
-                    appWidgetId,
-                    launch,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                views.setOnClickPendingIntent(R.id.widget_root, pi)
-            }
-
-            // Long-press alternative: floating full clock
+            // Tap opens the FULL animated spider clock (same as the app)
             val floatIntent = Intent(context, FloatingClockActivity::class.java)
             floatIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            // Use second click target if needed — root opens full app
+            val pi = PendingIntent.getActivity(
+                context,
+                appWidgetId,
+                floatIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.widget_root, pi)
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
