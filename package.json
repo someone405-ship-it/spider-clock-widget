@@ -1,37 +1,30 @@
 {
   "name": "spider-clock-widget",
-  "version": "1.0.0",
-  "description": "Spider Clock Widget — gears + spider animation",
+  "version": "1.1.0",
+  "description": "Spider Clock — real persistent desktop & mobile widget",
   "main": "electron-main.js",
   "author": "someone405-ship-it",
   "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "pack:win": "electron-builder --win portable --x64",
-    "pack:apk": "npx cap sync android && cd android && ./gradlew assembleDebug"
+    "pack:win": "electron-builder --win portable --x64"
   },
   "build": {
     "appId": "com.spiderclock.widget",
-    "productName": "Spider Clock",
-    "directories": {
-      "output": "dist-native"
-    },
+    "productName": "Spider Clock Widget",
+    "directories": { "output": "dist-native" },
     "files": [
       "index.html",
       "style.css",
       "script.js",
       "manifest.json",
       "sw.js",
-      "electron-main.js"
+      "electron-main.js",
+      "electron-preload.js"
     ],
     "win": {
-      "target": [
-        {
-          "target": "portable",
-          "arch": ["x64"]
-        }
-      ],
-      "artifactName": "SpiderClock-${version}-Windows.${ext}"
+      "target": [{ "target": "portable", "arch": ["x64"] }],
+      "artifactName": "SpiderClock-Windows.${ext}"
     },
     "portable": {
       "artifactName": "SpiderClock-Windows.exe"
