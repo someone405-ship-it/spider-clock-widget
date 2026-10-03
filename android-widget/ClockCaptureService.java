@@ -25,16 +25,17 @@ import android.webkit.WebViewClient;
 import android.widget.RemoteViews;
 
 /**
- * Keeps a hidden WebView running the SAME index.html as the app
- * (original SVG spider + gears + GSAP) and pushes frames to the home widget.
+ * Hidden WebView runs the SAME index.html as the app (original SVG spider + gears)
+ * and pushes live frames to the home-screen widget.
  */
 public class ClockCaptureService extends Service {
 
     private static final String TAG = "ClockCapture";
     private static final String CHANNEL_ID = "spider_clock_widget";
     private static final int NOTIF_ID = 42;
-    private static final int CAPTURE_SIZE = 360;
-    private static final long FRAME_MS = 1000L; // 1 fps — accurate hands, lower battery
+    private static final int CAPTURE_SIZE = 400;
+    // 2 fps — catches original 1s gear bounce ticks without heavy battery use
+    private static final long FRAME_MS = 500L;
 
     private WebView webView;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -61,7 +62,7 @@ public class ClockCaptureService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         running = true;
         handler.removeCallbacks(frameLoop);
-        handler.postDelayed(frameLoop, 800);
+        handler.postDelayed(frameLoop, 600);
         return START_STICKY;
     }
 
@@ -92,7 +93,7 @@ public class ClockCaptureService extends Service {
                     "Spider Clock Widget",
                     NotificationManager.IMPORTANCE_MIN
             );
-            ch.setDescription("Keeps the home-screen clock in sync with the original spider");
+            ch.setDescription("Live original spider clock on home screen");
             ch.setShowBadge(false);
             NotificationManager nm = getSystemService(NotificationManager.class);
             if (nm != null) nm.createNotificationChannel(ch);
@@ -107,7 +108,7 @@ public class ClockCaptureService extends Service {
                 ? new Notification.Builder(this, CHANNEL_ID)
                 : new Notification.Builder(this);
         b.setContentTitle("Spider Clock")
-                .setContentText("Home widget showing original clock")
+                .setContentText("Original clock on home screen")
                 .setSmallIcon(android.R.drawable.ic_menu_recent_history)
                 .setOngoing(true);
         if (pi != null) b.setContentIntent(pi);
@@ -135,7 +136,6 @@ public class ClockCaptureService extends Service {
             @Override
             public void onPageFinished(WebView view, String url) {
                 pageReady = true;
-                // Hide app chrome — only the original clock face
                 view.evaluateJavascript(
                         "(function(){try{" +
                                 "document.body.classList.remove('widget-mode','settings-open','edit-mode');" +
@@ -153,10 +153,8 @@ public class ClockCaptureService extends Service {
             }
         });
 
-        // Exact same assets as the main app
         webView.loadUrl("file:///android_asset/public/index.html");
 
-        // Off-screen layout so WebView actually paints the original SVG
         int w = CAPTURE_SIZE;
         int h = CAPTURE_SIZE;
         webView.measure(
@@ -181,7 +179,6 @@ public class ClockCaptureService extends Service {
             Canvas canvas = new Canvas(bmp);
             canvas.drawColor(Color.parseColor("#a34a01"));
             webView.draw(canvas);
-
             pushToWidgets(bmp);
         } catch (Exception e) {
             Log.w(TAG, "capture failed", e);
@@ -193,18 +190,14 @@ public class ClockCaptureService extends Service {
         ComponentName cn = new ComponentName(this, SpiderClockWidget.class);
         int[] ids = mgr.getAppWidgetIds(cn);
         if (ids == null || ids.length == 0) {
-            // No widgets left — stop service
             stopSelf();
             return;
         }
         for (int id : ids) {
             RemoteViews views = new RemoteViews(getPackageName(), R.layout.spider_clock_widget);
             views.setImageViewBitmap(R.id.widget_face, bmp);
-
             Intent open = getPackageManager().getLaunchIntentForPackage(getPackageName());
-            if (open == null) {
-                open = new Intent(this, FloatingClockActivity.class);
-            }
+            if (open == null) open = new Intent(this, FloatingClockActivity.class);
             open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             PendingIntent pi = PendingIntent.getActivity(
                     this, id, open,
